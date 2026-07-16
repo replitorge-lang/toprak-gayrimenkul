@@ -115,5 +115,21 @@ contextBridge.exposeInMainWorld('toprak', {
   onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', (event, info) => callback(info)),
   onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (event, progress) => callback(progress)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info)),
-  onUpdateError: (callback) => ipcRenderer.on('update-error', (event, msg) => callback(msg))
+  onUpdateError: (callback) => ipcRenderer.on('update-error', (event, msg) => callback(msg)),
+
+  // Save/Load
+  listSaves: () => ipcRenderer.invoke('list-saves'),
+  saveSlot: () => ipcRenderer.invoke('save-slot'),
+  loadSlot: (filePath) => ipcRenderer.invoke('load-slot', filePath),
+  deleteSave: (filePath) => ipcRenderer.invoke('delete-save', filePath),
+  renameSave: (filePath, newName) => ipcRenderer.invoke('rename-save', filePath, newName),
+  pickAndLoadBackup: () => ipcRenderer.invoke('pick-and-load-backup'),
+  restartApp: () => ipcRenderer.invoke('restart-app'),
+
+  // EDM Cookies + Password Manager
+  saveEdmCookies: () => ipcRenderer.invoke('save-edm-cookies'),
+  loadEdmCookies: () => ipcRenderer.invoke('load-edm-cookies'),
+  savePassword: (data) => ipcRenderer.invoke('save-password', data),
+  getPasswords: () => ipcRenderer.invoke('get-passwords'),
+  deletePassword: (key) => ipcRenderer.invoke('delete-password', key)
 });

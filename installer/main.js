@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const https = require('https');
 const { autoUpdater } = require('electron-updater');
+const crypto = require('crypto');
 const db = require('./db/database');
 
 let loginWindow = null;
@@ -778,4 +779,88 @@ ipcMain.handle('scan-import-folder', async (event, folderPath) => {
   } catch (err) {
     return { success: false, message: err.message };
   }
+});
+
+// ==========================================
+// EDM Cookie + Password Manager
+// ==========================================
+const ENC_KEY = crypto.scryptSync('toprak-gayrimenkul-2026-edm', 'salt-static', 32);
+
+function encrypt(text) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
+  let enc = cipher.update(text, 'utf8', 'hex');
+  enc += cipher.final('hex');
+  return JSON.stringify({ iv: iv.toString('hex'), d: enc, t: cipher.getAuthTag().toString('hex') });
+}
+
+function decrypt(pack) {
+  const { iv, d, t } = JSON.parse(pack);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, Buffer.from(iv, 'hex'));
+  decipher.setAuthTag(Buffer.from(t, 'hex'));
+  let dec = decipher.update(d, 'hex', 'utf8');
+  dec += decipher.final('utf8');
+  return dec;
+}
+
+ipcMain.handle('save-edm-cookies', async () => {
+  try {
+    const cookies = await require('electron').session.defaultSession.cookies.get({});
+    const edmCookies = cookies.filter(c => c.domain && c.domain.includes('edmbilisim'));
+    db.setSetting('edm_cookies', JSON.stringify(edmCookies));
+    return { success: true, count: edmCookies.length };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('load-edm-cookies', async () => {
+  try {
+    const raw = db.getSetting('edm_cookies');
+    if (!raw) return { success: true, count: 0 };
+    const cookies = JSON.parse(raw);
+    const ses = require('electron').session.defaultSession;
+    for (const c of cookies) {
+      const url = `${c.secure ? 'https' : 'http'}://${c.domain}${c.path}`;
+      try { await ses.cookies.set({ url, name: c.name, value: c.value, domain: c.domain, path: c.path, secure: c.secure, httpOnly: c.httpOnly }); } catch (_) {}
+    }
+    return { success: true, count: cookies.length };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('save-password', (event, { key, username, password, site }) => {
+  try {
+    const data = encrypt(JSON.stringify({ username, password, site: site || '' }));
+    db.setSetting(`pwd_${key}`, data);
+    const existing = db.getSetting('pwd_LIST');
+    const list = existing ? JSON.parse(existing) : [];
+    if (!list.includes(key)) list.push(key);
+    db.setSetting('pwd_LIST', JSON.stringify(list));
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('get-passwords', () => {
+  try {
+    const raw = db.getSetting('pwd_LIST');
+    const keys = raw ? JSON.parse(raw) : [];
+    const results = [];
+    for (const k of keys) {
+      const r = db.getSetting(`pwd_${k}`);
+      if (!r) continue;
+      try {
+        const { username, password, site } = JSON.parse(decrypt(r));
+        results.push({ key: k, username: username || '', password: password || '', site: site || '' });
+      } catch (_) {}
+    }
+    return { success: true, passwords: results };
+  } catch (e) { return { success: false, error: e.message, passwords: [] }; }
+});
+
+ipcMain.handle('delete-password', (event, key) => {
+  try {
+    db.setSetting(`pwd_${key}`, '');
+    const raw = db.getSetting('pwd_LIST');
+    const list = raw ? JSON.parse(raw) : [];
+    db.setSetting('pwd_LIST', JSON.stringify(list.filter(k => k !== key)));
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
 });

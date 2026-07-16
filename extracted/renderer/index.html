@@ -648,8 +648,26 @@
             <span id="edm-loading" style="font-size:12px;color:var(--text3);display:none;">Yükleniyor...</span>
             <button class="btn btn-sm" onclick="importSingleFile()" title="Dosya içe aktar" style="padding:4px 8px;font-size:14px;">📥</button>
             <button class="btn btn-sm" onclick="importFolderFiles()" title="Klasör içe aktar" style="padding:4px 8px;font-size:14px;">📂</button>
+            <button class="btn btn-sm" onclick="saveEdmCookies()" title="EDM çerezlerini kaydet" style="padding:4px 8px;font-size:14px;">🍪💾</button>
+            <button class="btn btn-sm" onclick="loadEdmCookies()" title="EDM çerezlerini yükle" style="padding:4px 8px;font-size:14px;">🍪📂</button>
+            <button class="btn btn-sm" onclick="showPasswordManager()" title="Şifre Yöneticisi" style="padding:4px 8px;font-size:14px;">🔑</button>
           </div>
           <webview id="edm-webview" src="https://nlbui.edmbilisim.com.tr/EFaturaUI/" style="flex:1;border:1px solid var(--border);border-radius:8px;" allowpopups></webview>
+          <!-- Password Manager Panel -->
+          <div id="edm-password-panel" style="display:none;flex-shrink:0;border-top:1px solid var(--border);padding:10px;background:var(--bg1);max-height:300px;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <strong style="font-size:14px;">Şifre Yöneticisi</strong>
+              <button class="btn btn-sm" onclick="hidePasswordManager()" style="padding:2px 8px;">✕</button>
+            </div>
+            <div id="pwd-form" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center;">
+              <input type="text" id="pwd-key" placeholder="Etiket (örn. edm)" style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);font-size:12px;">
+              <input type="text" id="pwd-username" placeholder="Kullanıcı adı" style="width:130px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);font-size:12px;">
+              <input type="password" id="pwd-password" placeholder="Şifre" style="width:130px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);font-size:12px;">
+              <button class="btn btn-sm" onclick="addPassword()" style="padding:4px 10px;">Kaydet</button>
+              <button class="btn btn-sm" onclick="autoFillEdm()" style="padding:4px 10px;">🔑 Otomatik Doldur</button>
+            </div>
+            <div id="pwd-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+          </div>
         </div>
       </div>
 

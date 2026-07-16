@@ -124,5 +124,12 @@ contextBridge.exposeInMainWorld('toprak', {
   deleteSave: (filePath) => ipcRenderer.invoke('delete-save', filePath),
   renameSave: (filePath, newName) => ipcRenderer.invoke('rename-save', filePath, newName),
   pickAndLoadBackup: () => ipcRenderer.invoke('pick-and-load-backup'),
-  restartApp: () => ipcRenderer.invoke('restart-app')
+  restartApp: () => ipcRenderer.invoke('restart-app'),
+
+  // EDM Cookies + Password Manager
+  saveEdmCookies: () => ipcRenderer.invoke('save-edm-cookies'),
+  loadEdmCookies: () => ipcRenderer.invoke('load-edm-cookies'),
+  savePassword: (data) => ipcRenderer.invoke('save-password', data),
+  getPasswords: () => ipcRenderer.invoke('get-passwords'),
+  deletePassword: (key) => ipcRenderer.invoke('delete-password', key)
 });

@@ -19,3 +19,6 @@ installer/tmp/
 installer/node_modules/
 extracted/node_modules/
 toprak-gayrimenkul-site/netlify/functions/node_modules/
+
+# Local Netlify folder
+.netlify
