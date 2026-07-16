@@ -2201,6 +2201,7 @@ function deleteInvoice(id) {
 // ==========================================
 
 let edmWebview = null;
+let edmLastUrl = '';
 
 function edmGoBack() { try { document.getElementById('edm-webview').goBack(); } catch(_) {} }
 function edmGoForward() { try { document.getElementById('edm-webview').goForward(); } catch(_) {} }
@@ -2209,84 +2210,113 @@ function edmReload() { try { document.getElementById('edm-webview').reload(); } 
 async function loadEdmPortal() {
   const container = document.getElementById('edmportal-content');
   if (!container) return;
-  // The webview is already in the HTML; just update URL display
   const wv = document.getElementById('edm-webview');
   if (!wv) return;
   edmWebview = wv;
 
   const urlInput = document.getElementById('edm-url');
   const loadingSpan = document.getElementById('edm-loading');
+  const statusEl = document.getElementById('edm-session-status');
 
   wv.addEventListener('did-start-loading', () => {
     if (loadingSpan) loadingSpan.style.display = 'inline';
   });
+
   wv.addEventListener('did-stop-loading', () => {
     if (loadingSpan) loadingSpan.style.display = 'none';
+    try {
+      const url = wv.getURL();
+      if (urlInput) urlInput.value = url;
+      checkSessionStatus(url);
+      autoSaveCookies(url);
+    } catch(_) {}
+  });
+
+  wv.addEventListener('did-navigate', (e) => {
+    if (urlInput) urlInput.value = e.url;
+    edmLastUrl = e.url;
+    checkSessionStatus(e.url);
+    autoSaveCookies(e.url);
+  });
+
+  wv.addEventListener('page-title-updated', () => {
     try {
       if (urlInput) urlInput.value = wv.getURL();
     } catch(_) {}
   });
-  wv.addEventListener('did-navigate', (e) => {
-    if (urlInput) urlInput.value = e.url;
-  });
-  wv.addEventListener('page-title-updated', (e) => {
-    if (urlInput) urlInput.value = wv.getURL();
-  });
 
   try {
-    if (urlInput) urlInput.value = wv.getURL();
+    const url = wv.getURL();
+    if (urlInput) urlInput.value = url;
+    edmLastUrl = url;
   } catch(_) {}
 
-  // Listen for downloads from webview
-  wv.addEventListener('will-redirect', (e) => {});
+  checkSessionStatus(edmLastUrl);
 
-  // Auto-restore cookies on load
-  const restored = await loadEdmCookies(true);
-  if (restored && restored.count > 0) {
+  // Auto-restore cookies on load (silent)
+  const restored = await window.toprak.loadEdmCookies();
+  if (restored && restored.success && restored.count > 0) {
+    updateSessionInfo(`${restored.count} çerez yüklendi`, 'var(--success)');
     wv.reload();
   }
 }
 
-// ==========================================
-// 🍪 EDM Cookie Save/Load
-// ==========================================
-
-async function saveEdmCookies() {
+// 🍪 Auto-save cookies when navigating after login
+let lastCookieSave = 0;
+async function autoSaveCookies(url) {
+  if (!url || !url.includes('edmbilisim')) return;
+  // Only save if remember is checked
+  const remember = document.getElementById('edm-remember');
+  if (remember && !remember.checked) return;
+  // Debounce: save at most once per 10 seconds
+  const now = Date.now();
+  if (now - lastCookieSave < 10000) return;
+  lastCookieSave = now;
   const result = await window.toprak.saveEdmCookies();
-  if (result.success) {
-    showToast(`🍪 ${result.count} çerez kaydedildi`, 'success');
+  if (result && result.success && result.count > 0) {
+    updateSessionInfo(`${result.count} çerez kaydedildi`, 'var(--success)');
+  }
+}
+
+// 👁 Check if we're on a logged-in page vs login page
+function checkSessionStatus(url) {
+  const statusEl = document.getElementById('edm-session-status');
+  const infoEl = document.getElementById('edm-session-info');
+  if (!url || !statusEl) return;
+  const isLoginPage = url.includes('login') || url.includes('Login') || url.includes('giris') || url.includes('Logon');
+  const isMainPage = url.includes('EFaturaUI') || url.includes('default') || url.includes('Home') || url.includes('home');
+  if (isLoginPage) {
+    statusEl.style.display = 'none';
+    if (infoEl) infoEl.textContent = 'Giriş sayfası';
+  } else if (isMainPage || (!isLoginPage && url.includes('edmbilisim'))) {
+    statusEl.style.display = 'inline';
+    if (infoEl) infoEl.textContent = '✅ Oturum açık';
   } else {
-    showToast('Çerez kaydedilemedi: ' + result.error, 'error');
+    statusEl.style.display = 'none';
   }
 }
 
-async function loadEdmCookies(silent) {
-  const result = await window.toprak.loadEdmCookies();
-  if (!silent) {
-    if (result.success) {
-      showToast(`🍪 ${result.count} çerez yüklendi, sayfa yenileniyor...`, 'success');
-      const wv = document.getElementById('edm-webview');
-      if (wv) wv.reload();
-    } else {
-      showToast('Çerez yüklenemedi: ' + result.error, 'error');
-    }
+function updateSessionInfo(text, color) {
+  const infoEl = document.getElementById('edm-session-info');
+  if (infoEl) {
+    infoEl.textContent = text;
+    infoEl.style.color = color || 'var(--text3)';
+    setTimeout(() => { if (infoEl) infoEl.style.color = 'var(--text3)'; }, 4000);
   }
-  return result;
 }
 
 // ==========================================
-// 🔑 Password Manager
+// 🔑 Password Manager (Modal-based)
 // ==========================================
 
-function showPasswordManager() {
-  const panel = document.getElementById('edm-password-panel');
-  if (panel) panel.style.display = 'block';
-  refreshPasswordList();
-}
-
-function hidePasswordManager() {
-  const panel = document.getElementById('edm-password-panel');
-  if (panel) panel.style.display = 'none';
+function toggleRemember() {
+  const cb = document.getElementById('edm-remember');
+  if (cb && cb.checked) {
+    // Save cookies immediately when toggling on
+    window.toprak.saveEdmCookies().then(r => {
+      if (r.success) updateSessionInfo(`${r.count} çerez kaydedildi`, 'var(--success)');
+    });
+  }
 }
 
 async function addPassword() {
@@ -2305,7 +2335,7 @@ async function addPassword() {
     document.getElementById('pwd-password').value = '';
     refreshPasswordList();
   } else {
-    showToast('Şifre kaydedilemedi: ' + result.error, 'error');
+    showToast('Şifre kaydedilemedi', 'error');
   }
 }
 
@@ -2313,90 +2343,80 @@ async function refreshPasswordList() {
   const container = document.getElementById('pwd-list');
   if (!container) return;
   const result = await window.toprak.getPasswords();
-  if (!result.success) {
-    container.innerHTML = '<span style="color:var(--text3);font-size:12px;">Yüklenemedi</span>';
-    return;
-  }
-  if (result.passwords.length === 0) {
-    container.innerHTML = '<span style="color:var(--text3);font-size:12px;">Kayıtlı şifre yok</span>';
+  if (!result.success || !result.passwords.length) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">Henüz kayıtlı şifre yok. Yukarıdan ekleyin.</div>';
     return;
   }
   container.innerHTML = result.passwords.map(p => `
-    <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg2);border-radius:4px;border:1px solid var(--border);font-size:12px;">
-      <strong style="min-width:60px;">${escHtml(p.key)}</strong>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border);font-size:13px;">
+      <span style="min-width:70px;font-weight:600;">${escHtml(p.key)}</span>
       <span style="flex:1;color:var(--text2);">${escHtml(p.username)}</span>
-      <span style="color:var(--text3);font-family:monospace;">${'•'.repeat(p.password.length > 12 ? 8 : p.password.length)}</span>
-      <button class="btn btn-sm" onclick="copyPassword('${escHtml(p.key.replace(/'/g, "\\'"))}')" title="Şifreyi Kopyala" style="padding:2px 6px;font-size:11px;">📋</button>
-      <button class="btn btn-sm" onclick="fillPassword('${escHtml(p.key.replace(/'/g, "\\'"))}')" title="Webview'a Doldur" style="padding:2px 6px;font-size:11px;">🔑</button>
-      <button class="btn btn-sm" onclick="deletePassword('${escHtml(p.key.replace(/'/g, "\\'"))}')" title="Sil" style="padding:2px 6px;font-size:11px;color:#e74c3c;">🗑</button>
+      <span style="font-family:monospace;color:var(--text3);letter-spacing:2px;">${'•'.repeat(p.password.length > 12 ? 8 : p.password.length)}</span>
+      <button class="btn btn-sm" onclick="doCopyPassword('${escHtml(p.key.replace(/'/g, "\\'"))}')" title="Kopyala" style="padding:4px 8px;">📋</button>
+      <button class="btn btn-sm" onclick="doAutoFill('${escHtml(p.key.replace(/'/g, "\\'"))}')" title="Web\'e gir" style="padding:4px 8px;">🔑</button>
+      <button class="btn btn-sm" onclick="doDeletePassword('${escHtml(p.key.replace(/'/g, "\\'"))}')" title="Sil" style="padding:4px 8px;color:#e74c3c;">🗑</button>
     </div>
   `).join('');
 }
 
-async function deletePassword(key) {
+async function doDeletePassword(key) {
   if (!confirm(`"${key}" şifresini silmek istediğinize emin misiniz?`)) return;
   const result = await window.toprak.deletePassword(key);
   if (result.success) {
-    showToast('Şifre silindi', 'info');
+    showToast('✅ Şifre silindi', 'info');
     refreshPasswordList();
   }
 }
 
-async function copyPassword(key) {
-  const result = await window.toprak.getPasswords();
-  const pwd = result.passwords.find(p => p.key === key);
-  if (pwd) {
-    try {
-      await navigator.clipboard.writeText(pwd.password);
-      showToast('📋 Şifre kopyalandı', 'success');
-    } catch (_) {
-      showToast('Kopyalama başarısız', 'error');
-    }
-  }
-}
-
-async function fillPassword(key) {
+async function doCopyPassword(key) {
   const result = await window.toprak.getPasswords();
   const pwd = result.passwords.find(p => p.key === key);
   if (!pwd) return;
-  const wv = document.getElementById('edm-webview');
-  if (!wv) return;
-  showToast('🔑 Şifre webview\'a dolduruluyor...', 'info');
   try {
-    wv.executeJavaScript(`
+    await navigator.clipboard.writeText(pwd.password);
+    showToast('📋 Şifre kopyalandı', 'success');
+  } catch (_) {
+    showToast('Kopyalama başarısız', 'error');
+  }
+}
+
+async function doAutoFill(key) {
+  const result = await window.toprak.getPasswords();
+  const pwd = result.passwords.find(p => p.key === key);
+  if (!pwd || !edmWebview) return;
+  showToast('🔑 Şifre web sayfasına aktarılıyor...', 'info');
+  try {
+    await edmWebview.executeJavaScript(`
       (function() {
-        const fill = (sel, val) => {
-          const el = document.querySelector(sel);
-          if (!el) return false;
-          const tag = el.tagName.toLowerCase();
-          if (tag === 'input' || tag === 'textarea') {
-            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            nativeSetter.call(el, val);
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          } else {
-            el.textContent = val;
-          }
-          return true;
-        };
         const u = ${JSON.stringify(pwd.username)};
         const p = ${JSON.stringify(pwd.password)};
         let filled = 0;
-        if (fill('input[type="text"][name*="kullanici" i], input[type="text"][name*="user" i], input[type="text"][name*="username" i], input[type="email" i], input[type="text"]:first-of-type', u)) filled++;
+        const fill = (sel, val) => {
+          const el = document.querySelector(sel);
+          if (!el) return false;
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(el, val);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        };
+        const userSel = 'input[type="text"][name*="kullanici" i], input[type="text"][name*="user" i], input[type="text"][name*="username" i], input[type="email" i], input[type="text"]:first-of-type';
+        if (fill(userSel, u)) filled++;
         if (fill('input[type="password"]', p)) filled++;
         return filled;
       })();
-    `).catch(() => {});
+    `);
+    showToast('✅ Kullanıcı adı ve şifre dolduruldu', 'success');
   } catch (_) {}
 }
 
 async function autoFillEdm() {
   const result = await window.toprak.getPasswords();
-  const edmPwd = result.passwords.find(p => p.key === 'edm' || p.site === 'edmbilisim');
-  if (edmPwd) {
-    await fillPassword(edmPwd.key);
+  const pwd = result.passwords.find(p => p.key === 'edm' || p.site === 'edmbilisim');
+  if (pwd) {
+    await doAutoFill(pwd.key);
   } else {
-    showToast('Kayıtlı EDM şifresi bulunamadı. Önce şifre ekleyin.', 'error');
+    showToast('Kayıtlı EDM şifresi bulunamadı. Lütfen önce şifre ekleyin.', 'error');
   }
 }
 
