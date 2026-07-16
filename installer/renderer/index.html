@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Toprak Gayrimenkul Finansal Yönetim Paneli</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="chart.js"></script>
+</head>
+<body class="theme-dark" id="main-app">
+  <!-- Loading Overlay -->
+  <div id="loading-overlay"><div id="loading-spinner"></div></div>
+  <!-- Splash Screen -->
+  <div id="splash-screen">
+    <div class="splash-content">
+      <div class="splash-logo">TG</div>
+      <div class="splash-title">TOPRAK GAYRİMENKUL</div>
+      <div class="splash-subtitle">Finansal Yönetim Paneli</div>
+      <div class="splash-loader"><div class="splash-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Titlebar -->
+  <div id="titlebar">
+    <div id="titlebar-logo">
+      <span>TOPRAK GAYRİMENKUL — FİNANSAL YÖNETİM PANELİ</span>
+    </div>
+    <div id="titlebar-controls">
+      <button class="window-btn" id="min-btn">&#8722;</button>
+      <button class="window-btn" id="max-btn">&#9633;</button>
+      <button class="window-btn" id="close-btn">&#215;</button>
+    </div>
+  </div>
+
+  <div id="app-container">
+    <!-- Sidebar Navigation -->
+    <aside>
+      <div class="logo-sidebar" style="justify-content: center; padding: 10px 0; border-bottom: 1px solid var(--border);">
+        <img id="sidebar-logo" src="../assets/logo.png" alt="Toprak Gayrimenkul Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+      </div>
+
+      <div style="padding: 8px 12px;">
+        <select id="company-selector" class="filter-control" style="width: 100%; font-size: 13px;" onchange="switchCompany(this.value)">
+        </select>
+      </div>
+
+      <ul class="nav-menu">
+        <li class="nav-item active" data-view="dashboard">
+          <i>📊</i> <span>Ana Panel</span>
+        </li>
+        <li class="nav-item" data-view="transactions">
+          <i>💳</i> <span>İşlemler</span>
+        </li>
+        <li class="nav-item" data-view="properties" data-label-gayrimenkul="Mülkler" data-label-derch="Markalar" data-label-yo="Mülkler">
+          <i>🏢</i> <span>Mülkler</span>
+        </li>
+        <li class="nav-item" data-view="staff">
+          <i>👥</i> <span>Personel</span>
+        </li>
+        <li class="nav-item" data-view="reports">
+          <i>📈</i> <span>Raporlar</span>
+        </li>
+        <li class="nav-item" data-view="einvoice">
+          <i>📄</i> <span>e-Fatura / e-Arşiv</span>
+        </li>
+        <li class="nav-item" data-view="accounts">
+          <i>📋</i> <span>Cari Hesap</span>
+        </li>
+        <li class="nav-item" data-view="agreements">
+          <i>📝</i> <span>Sözleşmeler</span>
+        </li>
+        <li class="nav-item company-yo" data-view="subscriptions" style="display:none;">
+          <i>📺</i> <span>Sivas Durak</span>
+        </li>
+        <li class="nav-item company-yo" data-view="iban" style="display:none;">
+          <i>🏦</i> <span>IBAN</span>
+        </li>
+        <li class="nav-item" data-view="edmportal">
+          <i>🎵</i> <span>EDM Portal</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="avatar-small" id="user-avatar">?</div>
+          <div class="user-details">
+            <span class="user-name" id="user-display-name">Yükleniyor...</span>
+            <span class="user-role">Yönetici</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button class="sidebar-icon-btn" id="btn-categories" title="Kategoriler">🏷️</button>
+          <button class="sidebar-icon-btn" id="btn-settings" title="Ayarlar">⚙️</button>
+          <button class="logout-btn" id="logout-btn" title="Çıkış Yap">
+            <i>🚪</i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Update Notification -->
+    <div id="update-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--accent);color:#fff;text-align:center;padding:6px 12px;font-size:12px;font-weight:500;">
+      <span id="update-bar-text">Yeni sürüm indiriliyor...</span>
+      <button id="update-bar-btn" style="display:none;margin-left:10px;padding:2px 10px;border:none;border-radius:4px;background:#fff;color:var(--accent);cursor:pointer;font-size:11px;font-weight:600;">Güncelle ve Yeniden Başlat</button>
+      <button onclick="this.parentElement.style.display='none'" style="margin-left:10px;background:none;border:none;color:#fff;cursor:pointer;font-size:14px;">&times;</button>
+    </div>
+
+    <!-- Main Content -->
+    <main>
+      <header>
+        <div class="page-title" id="page-title">Ana Panel</div>
+        <div class="header-actions">
+          <button class="theme-toggle-btn" id="theme-toggle">🌙</button>
+          <div class="notification-bell" id="notification-bell" title="Bekleyen Tahsilatlar">
+            <i>🔔</i>
+            <span class="notification-badge" id="notification-count" style="display: none;">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- View: Dashboard -->
+      <div id="view-dashboard" class="view-container active">
+        <!-- Company Switcher -->
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+          <div class="summary-card income">
+            <div class="summary-title">Toplam Gelir</div>
+            <div class="summary-value" id="card-income">₺0</div>
+            <div class="summary-trend">Bu ayki tamamlanan tahsilatlar</div>
+          </div>
+          <div class="summary-card expense">
+            <div class="summary-title">Toplam Gider</div>
+            <div class="summary-value" id="card-expense">₺0</div>
+            <div class="summary-trend">Bu ayki tamamlanan ödemeler</div>
+          </div>
+          <div class="summary-card net">
+            <div class="summary-title">Net Bakiye</div>
+            <div class="summary-value" id="card-net">₺0</div>
+            <div class="summary-trend" id="card-net-trend">Gelir - Gider dengesi</div>
+          </div>
+          <div class="summary-card pending">
+            <div class="summary-title">Bekleyen Tahsilat</div>
+            <div class="summary-value" id="card-pending">₺0</div>
+            <div class="summary-trend">İşlemi bekleyen tutarlar</div>
+          </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <span class="chart-title">Aylık Gelir / Gider Analizi (Son 6 Ay)</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="line-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <span class="chart-title">Gider Kategori Dağılımı</span>
+              <div id="dashboard-company-bar" style="display:flex;flex-direction:column;gap:2px;"></div>
+            </div>
+            <div class="chart-container">
+              <canvas id="doughnut-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="section-header">
+          <span class="section-title">Son İşlemler</span>
+          <button class="btn" id="btn-goto-transactions" style="width: auto; padding: 8px 16px;">Tümünü Gör</button>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Açıklama</th>
+                <th>Kategori</th>
+                <th>Tür</th>
+                <th>Tutar</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-recent-table">
+              <!-- JS Injected rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- View: Transactions -->
+      <div id="view-transactions" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Finansal İşlemler</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="btn-import-csv-tx" style="width: auto; display: flex; align-items: center; gap: 5px;">📂 CSV Aktar</button>
+            <button class="btn" id="btn-add-transaction" style="width: auto;">+ Yeni İşlem Ekle</button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+          <div class="filter-group search-box">
+            <label>Arama</label>
+            <input type="text" id="filter-search" class="filter-control" placeholder="Açıklama, mülk, personel...">
+          </div>
+          <div class="filter-group">
+            <label>Tür</label>
+              <select id="filter-type" class="filter-control">
+                <option value="">Tümü</option>
+                <option value="Gelir">Gelir</option>
+                <option value="Gider">Gider</option>
+                <option value="Personel">Personel</option>
+                <option value="Paket">Paket</option>
+                <option value="Platform">Platform</option>
+                <option value="İşletme">İşletme</option>
+              </select>
+          </div>
+          <div class="filter-group">
+            <label>Kategori</label>
+            <select id="filter-category" class="filter-control">
+              <option value="">Tümü</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Durum</label>
+            <select id="filter-status" class="filter-control">
+              <option value="">Tümü</option>
+              <option value="Tamamlandı">Tamamlandı</option>
+              <option value="Bekliyor">Bekliyor</option>
+              <option value="İptal">İptal</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Başlangıç Tarihi</label>
+            <input type="date" id="filter-start-date" class="filter-control">
+          </div>
+          <div class="filter-group">
+            <label>Bitiş Tarihi</label>
+            <input type="date" id="filter-end-date" class="filter-control">
+          </div>
+          <button class="btn btn-secondary" id="btn-clear-filters" style="width: auto; margin-top: 14px; padding: 8px 12px;">Temizle</button>
+          <button class="btn btn-danger" id="btn-mass-delete-tx" style="width: auto; margin-top: 14px; padding: 8px 12px; display: none;">🗑️ Toplu Sil</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select-all-tx" class="select-all-checkbox" onchange="toggleAllTx()"></th>
+                <th>Tarih</th>
+                <th>Açıklama</th>
+                <th>Tür</th>
+                <th>Kategori</th>
+                <th>Tutar</th>
+                <th>Mülk / Personel</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody id="transactions-table-body">
+              <!-- Injected rows -->
+            </tbody>
+          </table>
+          <!-- Pagination -->
+          <div class="pagination">
+            <span id="pagination-info">Gösterilen: 0 - 0 / Toplam: 0</span>
+            <div style="display: flex; gap: 8px;">
+              <button class="pagination-btn" id="pagination-prev">Geri</button>
+              <button class="pagination-btn" id="pagination-next">İleri</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View: Properties -->
+      <div id="view-properties" class="view-container">
+        <div class="section-header">
+          <span class="section-title" id="properties-section-title">Portföy ve Mülkler</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="select-all-prop" class="select-all-checkbox" onchange="toggleAllProp()"> Tümünü Seç</label>
+            <button class="btn btn-danger" id="btn-mass-delete-prop" style="width:auto;padding:8px 12px;display:none;">🗑️ Toplu Sil</button>
+            <button class="btn" id="btn-add-property" style="width: auto;">+ <span id="btn-add-prop-label">Yeni Mülk</span> Ekle</button>
+          </div>
+        </div>
+        
+        <div class="properties-grid" id="properties-grid">
+          <!-- Injected property cards -->
+        </div>
+      </div>
+
+      <!-- View: Staff -->
+      <div id="view-staff" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Ekibimiz ve Performans</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="select-all-staff" class="select-all-checkbox" onchange="toggleAllStaff()"> Tümünü Seç</label>
+            <button class="btn btn-danger" id="btn-mass-delete-staff" style="width:auto;padding:8px 12px;display:none;">🗑️ Toplu Sil</button>
+            <button class="btn" id="btn-add-staff" style="width: auto;">+ Personel Ekle</button>
+          </div>
+        </div>
+        
+        <div class="staff-grid" id="staff-grid">
+          <!-- Injected staff cards -->
+        </div>
+      </div>
+
+      <!-- View: Reports -->
+      <div id="view-reports" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Finansal Raporlar</span>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" id="btn-export-csv" style="width: auto; display: flex; align-items: center; gap: 5px;">
+              <i>📥</i> CSV İndir
+            </button>
+            <button class="btn" id="btn-export-pdf" style="width: auto; display: flex; align-items: center; gap: 5px;">
+              <i>🖨️</i> PDF Yazdır
+            </button>
+          </div>
+        </div>
+
+        <!-- Month Filter -->
+        <div class="report-date-selector">
+          <div style="display: flex; gap: 15px; align-items: center;">
+            <div class="filter-group">
+              <label>Yıl</label>
+              <select id="report-year" class="filter-control">
+                <option value="2026" selected>2026</option>
+                <option value="2025">2025</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Ay</label>
+              <select id="report-month" class="filter-control">
+                <option value="">Tüm Yıl</option>
+                <option value="01">Ocak</option>
+                <option value="02">Şubat</option>
+                <option value="03">Mart</option>
+                <option value="04">Nisan</option>
+                <option value="05" selected>Mayıs</option>
+                <option value="06">Haziran</option>
+                <option value="07">Temmuz</option>
+                <option value="08">Ağustos</option>
+                <option value="09">Eylül</option>
+                <option value="10">Ekim</option>
+                <option value="11">Kasım</option>
+                <option value="12">Aralık</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <span style="font-weight: bold; font-size: 14px;" id="report-period-label">Dönem: Mayıs 2026</span>
+          </div>
+        </div>
+
+        <!-- Profit/Loss Statement -->
+        <div class="report-summary-full">
+          <h4 style="margin-bottom: 15px; font-family: var(--font-heading); font-size: 16px;">Kâr / Zarar Tablosu</h4>
+          <div style="display: flex; justify-content: space-around; text-align: center;">
+            <div>
+              <div style="color: var(--text3); font-size: 11px; text-transform: uppercase;">Toplam Gelir</div>
+              <div style="font-size: 22px; font-weight: bold; color: var(--green-pos); margin-top: 5px;" id="report-total-income">₺0</div>
+            </div>
+            <div style="border-left: 1px solid var(--border);"></div>
+            <div>
+              <div style="color: var(--text3); font-size: 11px; text-transform: uppercase;">Toplam Gider</div>
+              <div style="font-size: 22px; font-weight: bold; color: var(--red-neg); margin-top: 5px;" id="report-total-expense">₺0</div>
+            </div>
+            <div style="border-left: 1px solid var(--border);"></div>
+            <div>
+              <div style="color: var(--text3); font-size: 11px; text-transform: uppercase;">Net Dönem Kârı</div>
+              <div style="font-size: 22px; font-weight: bold; margin-top: 5px;" id="report-net-profit">₺0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <!-- Income Category Breakdown -->
+          <div class="report-card">
+            <div class="chart-header">
+              <span class="chart-title">Gelir Kalemleri Dağılımı</span>
+            </div>
+            <div class="table-responsive" style="box-shadow: none; border: none;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kategori</th>
+                    <th>Toplam</th>
+                    <th>Pay (%)</th>
+                  </tr>
+                </thead>
+                <tbody id="report-income-table">
+                  <!-- JS Injected -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Expense Category Breakdown -->
+          <div class="report-card">
+            <div class="chart-header">
+              <span class="chart-title">Gider Kalemleri Dağılımı</span>
+            </div>
+            <div class="table-responsive" style="box-shadow: none; border: none;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kategori</th>
+                    <th>Toplam</th>
+                    <th>Pay (%)</th>
+                  </tr>
+                </thead>
+                <tbody id="report-expense-table">
+                  <!-- JS Injected -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <!-- Top Properties -->
+          <div class="report-card">
+            <div class="chart-header">
+              <span class="chart-title">En Çok Kazandıran Mülkler</span>
+            </div>
+            <div class="table-responsive" style="box-shadow: none; border: none;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mülk Adı</th>
+                    <th>Tür/Durum</th>
+                    <th>Toplam Gelir</th>
+                  </tr>
+                </thead>
+                <tbody id="report-properties-table">
+                  <!-- JS Injected -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Staff Performance -->
+          <div class="report-card">
+            <div class="chart-header">
+              <span class="chart-title">Danışman Prim ve Kazanç Dağılımı</span>
+            </div>
+            <div class="table-responsive" style="box-shadow: none; border: none;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Personel</th>
+                    <th>Rol</th>
+                    <th>Kazanılan Prim</th>
+                  </tr>
+                </thead>
+                <tbody id="report-staff-table">
+                  <!-- JS Injected -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View: e-Fatura / e-Arşiv -->
+      <div id="view-einvoice" class="view-container">
+        <div class="section-header">
+          <span class="section-title">e-Fatura / e-Arşiv Yönetimi</span>
+          <button class="btn" id="btn-add-invoice" style="width: auto;">+ Yeni Fatura Ekle</button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-group search-box">
+            <label>Ara</label>
+            <input type="text" id="inv-filter-search" class="filter-control" placeholder="Fatura no, müşteri...">
+          </div>
+          <div class="filter-group">
+            <label>Tür</label>
+            <select id="inv-filter-type" class="filter-control">
+              <option value="">Tümü</option>
+              <option value="e-Fatura">e-Fatura</option>
+              <option value="e-Arsiv">e-Arşiv</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Durum</label>
+            <select id="inv-filter-status" class="filter-control">
+              <option value="">Tümü</option>
+              <option value="Taslak">Taslak</option>
+              <option value="Gonderildi">Gönderildi</option>
+              <option value="Iptal">İptal</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" id="btn-clear-inv-filters" style="width: auto; margin-top: 14px; padding: 8px 12px;">Temizle</button>
+          <button class="btn btn-danger" id="btn-mass-delete-inv" style="width: auto; margin-top: 14px; padding: 8px 12px; display: none;">🗑️ Toplu Sil</button>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select-all-inv" class="select-all-checkbox" onchange="toggleAllInv()"></th>
+                <th>Fatura No</th>
+                <th>Tür</th>
+                <th>Müşteri</th>
+                <th>Tutar</th>
+                <th>Durum</th>
+                <th>Kesim Tarihi</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody id="invoices-table-body">
+              <!-- JS Injected -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- View: Cari Hesap Yönetimi -->
+      <div id="view-accounts" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Cari Hesap Yönetimi</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="select-all-acc" class="select-all-checkbox" onchange="toggleAllAcc()"> Tümünü Seç</label>
+            <button class="btn btn-danger" id="btn-mass-delete-acc" style="width:auto;padding:8px 12px;display:none;">🗑️ Toplu Sil</button>
+            <button class="btn" id="btn-add-account" style="width: auto;">+ Yeni Cari Hesap Ekle</button>
+          </div>
+        </div>
+        <div class="cari-grid" id="accounts-grid">
+          <!-- JS Injected account cards -->
+        </div>
+      </div>
+
+      <!-- View: Sözleşmeler -->
+      <div id="view-agreements" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Sözleşmeler</span>
+          <button class="btn btn-danger" id="btn-mass-delete-agr" style="width:auto;padding:8px 12px;display:none;">🗑️ Toplu Sil</button>
+          <button class="btn" id="btn-add-agreement" style="width: auto;">+ Yeni Sözleşme Ekle</button>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select-all-agr" class="select-all-checkbox" onchange="toggleAllAgr()"></th>
+                <th>Tarih</th>
+                <th>Firma</th>
+                <th>Plan</th>
+                <th>Tutar</th>
+                <th>Başlangıç</th>
+                <th>Bitiş</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody id="agreements-table-body">
+              <!-- JS Injected -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- View: Kategoriler -->
+      <div id="view-categories" class="view-container">
+        <div class="section-header">
+          <span class="section-title">🏷️ Kategori Yönetimi</span>
+        </div>
+        <div class="categories-page">
+          <div class="settings-card">
+            <h3 style="margin-bottom:15px;font-family:var(--font-heading);font-size:14px;">➕ Yeni Kategori Ekle</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+              <div class="form-group" style="flex:2;min-width:180px;">
+                <label>Kategori Adı</label>
+                <input type="text" id="cat-name" class="form-control" placeholder="örn: Kira Geliri" style="width:100%;">
+              </div>
+              <div class="form-group" style="flex:1;min-width:120px;">
+                <label>Tür</label>
+                <select id="cat-type" class="filter-control" style="width:100%;">
+                  <option value="Gelir">💰 Gelir</option>
+                  <option value="Gider">💸 Gider</option>
+                  <option value="Personel">👤 Personel</option>
+                  <option value="Paket">📦 Paket</option>
+                  <option value="Platform">📡 Platform</option>
+                  <option value="İşletme">🏢 İşletme</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1;min-width:140px;">
+                <label>Şirket</label>
+                <select id="cat-company" class="filter-control" style="width:100%;"></select>
+              </div>
+              <button class="btn" id="btn-add-cat" style="white-space:nowrap;margin-bottom:4px;">➕ Ekle</button>
+            </div>
+          </div>
+          <div id="category-list-page" style="margin-top:15px;"></div>
+        </div>
+      </div>
+
+      <!-- View: Sivas Durak Abonelikler (Yo Media) -->
+      <div id="view-subscriptions" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Sivas Durak Abonelikler</span>
+          <button class="btn btn-danger" id="btn-mass-delete-sub" style="width:auto;padding:8px 12px;display:none;">🗑️ Toplu Sil</button>
+        </div>
+        <div class="filter-bar" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+          <input type="text" id="filter-subscription-search" class="filter-control" placeholder="Abone ara..." style="flex: 1; min-width: 150px;">
+          <button class="btn" id="btn-add-subscription">➕ Yeni Abonelik</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="subscriptions-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select-all-sub" class="select-all-checkbox" onchange="toggleAllSub()"></th>
+                <th>Tarih</th>
+                <th>Firma</th>
+                <th>Plan</th>
+                <th>Tutar</th>
+                <th>Başlangıç</th>
+                <th>Bitiş</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody id="subscriptions-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- View: IBAN Kütüphanesi -->
+      <div id="view-iban" class="view-container">
+      </div>
+
+      <!-- View: EDM Portal (Fatura Yönetim Merkezi) -->
+      <div id="view-edmportal" class="view-container">
+        <div class="section-header">
+          <span class="section-title">EDM Portal</span>
+        </div>
+        <div id="edmportal-content" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+          <div id="edm-nav" style="display:flex;gap:6px;padding:6px 0;align-items:center;flex-shrink:0;">
+            <button class="btn btn-sm" onclick="edmGoBack()" style="padding:4px 8px;font-size:14px;">◀</button>
+            <button class="btn btn-sm" onclick="edmGoForward()" style="padding:4px 8px;font-size:14px;">▶</button>
+            <button class="btn btn-sm" onclick="edmReload()" style="padding:4px 8px;font-size:14px;">⟳</button>
+            <input type="text" id="edm-url" readonly style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text2);font-size:12px;font-family:monospace;">
+            <span id="edm-loading" style="font-size:12px;color:var(--text3);display:none;">Yükleniyor...</span>
+            <button class="btn btn-sm" onclick="importSingleFile()" title="Dosya içe aktar" style="padding:4px 8px;font-size:14px;">📥</button>
+            <button class="btn btn-sm" onclick="importFolderFiles()" title="Klasör içe aktar" style="padding:4px 8px;font-size:14px;">📂</button>
+          </div>
+          <webview id="edm-webview" src="https://nlbui.edmbilisim.com.tr/EFaturaUI/" style="flex:1;border:1px solid var(--border);border-radius:8px;" allowpopups></webview>
+        </div>
+      </div>
+
+      <!-- View: Ayarlar -->
+      <div id="view-settings" class="view-container">
+        <div class="section-header">
+          <span class="section-title">Ayarlar</span>
+        </div>
+
+        <div style="max-width: 700px;">
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">Görünüm</h3>
+            <div class="form-group">
+              <label>Tema Seçin</label>
+              <select id="theme-select" class="filter-control" style="width:100%;max-width:300px;" onchange="setTheme(this.value)">
+                <option value="dark">🌙 Koyu</option>
+                <option value="light">☀️ Açık</option>
+                <option value="mavi">🔵 Mavi</option>
+                <option value="cappuccino">☕ Cappuccino</option>
+                <option value="orman">🌲 Orman</option>
+                <option value="gece">🌃 Gece</option>
+                <option value="gunes">🌅 Güneş</option>
+                <option value="okyanus">🌊 Okyanus</option>
+                <option value="lavanta">🌸 Lavanta</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">Hızlı Silme</h3>
+            <p style="color: var(--text2); font-size: 13px; margin-bottom: 15px;">Aktif edildiğinde silme işlemleri onay sormadan doğrudan gerçekleştirilir.</p>
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <span>Onaysız silme:</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="settings-quick-delete">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">Yerel / Ağ Sürücüsü Yedekleme</h3>
+            <p style="color: var(--text2); font-size: 13px; margin-bottom: 15px;">Veritabanınızı USB bellek, harici disk veya ağ sürücünüze yedekleyin. Yedekleme sıklığını seçip klasör belirleyin.</p>
+            <div class="form-group">
+              <label for="settings-cloud-enabled">Otomatik Yedekleme</label>
+              <select id="settings-cloud-enabled" class="filter-control" style="width: auto;">
+                <option value="0">Kapalı</option>
+                <option value="1">Açık</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Yedekleme Klasörü</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="settings-backup-folder" class="form-control" placeholder="Klasör seçilmedi" readonly style="flex: 1; cursor: pointer;" onclick="selectBackupFolder()">
+                <button class="btn btn-secondary" id="btn-select-backup-folder" style="width: auto; padding: 8px 16px;" onclick="selectBackupFolder()">📂 Seç</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="settings-cloud-interval">Yedekleme Sıklığı</label>
+              <select id="settings-cloud-interval" class="filter-control" style="width: auto;">
+                <option value="hourly">Saatlik</option>
+                <option value="daily">Günlük</option>
+                <option value="weekly">Haftalık</option>
+                <option value="manual">Manuel</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+              <button class="btn" id="btn-backup-now" style="width:auto;">💾 Şimdi Yedekle</button>
+              <button class="btn btn-secondary" id="btn-pick-backup" style="width:auto;">📂 Geri Yükle</button>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--text3);" id="backup-status"></div>
+            <div id="save-slots-list" style="max-height:300px;overflow-y:auto;margin-top:12px;"></div>
+          </div>
+
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">CSV İçe Aktarma (Banka Hesap Hareketleri)</h3>
+            <p style="color: var(--text2); font-size: 13px; margin-bottom: 15px;">Banka hesap özetinizi CSV formatında yükleyerek işlemleri otomatik oluşturun. CSV formatı: <code>Tarih,Açıklama,Tutar</code> (Tutar pozitifse gelir, negatifse gider).</p>
+            <button class="btn" id="btn-import-csv" style="width: auto;">📂 CSV Dosyası Seç ve İçe Aktar</button>
+            <div style="margin-top: 10px; font-size: 12px; color: var(--text3);" id="csv-import-status"></div>
+          </div>
+
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">📁 Otomatik Fatura Dosyalama</h3>
+            <p style="color: var(--text2); font-size: 13px; margin-bottom: 15px;">İndirilen faturaları (PDF) otomatik olarak şirket adı + yıl klasörlerine düzenler. Örn: "Derch Media 2026 Fatura/"</p>
+            <div class="form-group">
+              <label for="settings-auto-file-enabled">Otomatik Dosyalama</label>
+              <select id="settings-auto-file-enabled" class="filter-control" style="width: auto;">
+                <option value="0">Kapalı</option>
+                <option value="1">Açık</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>İzlenen Klasör</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="settings-auto-file-folder" class="form-control" placeholder="Klasör seçilmedi" readonly style="flex: 1; cursor: pointer;" onclick="selectWatchFolder()">
+                <button class="btn btn-secondary" style="width: auto; padding: 8px 16px;" onclick="selectWatchFolder()">📂 Seç</button>
+              </div>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--text3);" id="auto-file-status"></div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+              <button class="btn" onclick="importFolderFiles()" style="width:auto;">📂 Klasör İçe Aktar</button>
+              <button class="btn btn-secondary" onclick="importSingleFile()" style="width:auto;margin-left:8px;">📥 Dosya İçe Aktar</button>
+              <p style="color:var(--text3);font-size:11px;margin-top:6px;">XML (e-Fatura), CSV, Excel, PDF, görsel ve diğer dosya türlerini içe aktarın.</p>
+            </div>
+
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">Uygulama Hakkında</h3>
+            <p style="color: var(--text2); font-size: 13px;">Toprak Gayrimenkul Finansal Yönetim Paneli v1.2.0</p>
+            <p style="color: var(--text2); font-size: 12px; margin-top: 5px;">&copy; 2026 Toprak Gayrimenkul</p>
+            <button class="btn btn-secondary" id="btn-show-intro" style="width: auto; margin-top: 10px;">Kullanım Kılavuzunu Göster</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- --- MODALS --- -->
+
+  <!-- Modal: Add/Edit Transaction -->
+  <div class="modal-overlay" id="modal-transaction">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-transaction-title">Yeni İşlem Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-transaction')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-transaction">
+          <input type="hidden" id="tx-id">
+          
+          <div class="form-group">
+            <label for="tx-date">Tarih *</label>
+            <input type="date" id="tx-date" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="tx-desc">Açıklama *</label>
+            <input type="text" id="tx-desc" class="form-control" placeholder="Örn: Mimar Sinan Mah. Daire Satışı" required>
+            <div class="form-error" id="tx-desc-error">Lütfen açıklama girin.</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="tx-type">Tür *</label>
+                <select id="tx-type" class="form-control" required>
+                  <option value="Gelir">Gelir</option>
+                  <option value="Gider">Gider</option>
+                  <option value="Personel">Personel</option>
+                  <option value="Paket">Paket</option>
+                  <option value="Platform">Platform</option>
+                  <option value="İşletme">İşletme</option>
+                </select>
+            </div>
+            <div class="form-group">
+              <label for="tx-category">Kategori *</label>
+              <select id="tx-category" class="form-control" required>
+                <!-- Filled dynamically by type -->
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="tx-amount">Tutar (₺) *</label>
+              <input type="text" id="tx-amount" class="form-control auto-thousands" placeholder="0.00" required>
+              <div class="form-error" id="tx-amount-error">Lütfen geçerli bir tutar girin.</div>
+            </div>
+            <div class="form-group">
+              <label for="tx-status">Durum *</label>
+              <select id="tx-status" class="form-control" required>
+                <option value="Tamamlandı">Tamamlandı</option>
+                <option value="Bekliyor">Bekliyor</option>
+                <option value="İptal">İptal</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="tx-property">İlgili Mülk</label>
+              <select id="tx-property" class="form-control">
+                <option value="">-- Mülk Seçin (İsteğe Bağlı) --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="tx-staff">İlgili Personel</label>
+              <select id="tx-staff" class="form-control">
+                <option value="">-- Personel Seçin (İsteğe Bağlı) --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="tx-note">Notlar</label>
+            <textarea id="tx-note" class="form-control" rows="3" placeholder="Detaylı notlar veya müşteri bilgisi..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-transaction')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-transaction">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Property -->
+  <div class="modal-overlay" id="modal-property">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-property-title">Yeni Mülk Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-property')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-property">
+          <input type="hidden" id="prop-id">
+          <div id="prop-dynamic-fields"></div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="prop-note">Notlar</label>
+            <textarea id="prop-note" class="form-control" rows="3" placeholder="Notlar..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-property')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-property">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Staff -->
+  <div class="modal-overlay" id="modal-staff">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-staff-title">Personel Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-staff')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-staff">
+          <input type="hidden" id="staff-id-field">
+          
+          <div class="form-group">
+            <label for="staff-name-field">Ad Soyad *</label>
+            <input type="text" id="staff-name-field" class="form-control" placeholder="Örn: Ahmet Yılmaz" required>
+            <div class="form-error" id="staff-name-error">Lütfen personel adını girin.</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="staff-role">Rol *</label>
+              <select id="staff-role" class="form-control" required>
+                <option value="">Rol seçin</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="staff-phone">Telefon</label>
+              <input type="text" id="staff-phone" class="form-control" placeholder="05xx xxx xxxx">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 0;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="staff-rate">Komisyon Oranı (%)</label>
+              <input type="number" id="staff-rate" class="form-control" min="0" max="100" step="0.1" value="1.5">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="staff-salary">Aylık Sabit Maaş (₺)</label>
+              <input type="text" id="staff-salary" class="form-control auto-thousands" placeholder="0">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-staff')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-staff">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div class="modal-overlay confirm-modal" id="modal-confirm">
+    <div class="modal-content">
+      <div class="modal-body">
+        <div class="confirm-icon">⚠️</div>
+        <h3 class="modal-title" style="margin-bottom: 10px; font-size: 16px;" id="confirm-title">Emin misiniz?</h3>
+        <p id="confirm-message" style="font-size: 13px; color: var(--text2); line-height: 1.5;">Bu işlem geri alınamaz.</p>
+      </div>
+      <div class="modal-footer" style="justify-content: center; border: none; padding-top: 0;">
+        <button class="btn btn-secondary" style="width: auto; padding: 10px 20px;" onclick="closeModal('modal-confirm')">İptal</button>
+        <button class="btn" style="width: auto; padding: 10px 20px; background-color: var(--red-neg);" id="btn-confirm-yes">Sil</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-in Property Detail Sidebar -->
+  <div class="detail-sidebar" id="property-detail-sidebar">
+    <div class="detail-header">
+      <span class="modal-title" id="prop-detail-name">Mülk Detayları</span>
+      <button class="modal-close" onclick="closePropertyDetail()">&times;</button>
+    </div>
+    <div class="detail-body">
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 10px; color: var(--text3); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Tür ve Durum</div>
+        <div style="display: flex; gap: 8px;">
+          <span class="badge badge-income" id="prop-detail-type-badge">Daire</span>
+          <span class="badge badge-warning" id="prop-detail-status-badge">Satılık</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 10px; color: var(--text3); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Değer ve Komisyon Oranı</div>
+        <div style="font-size: 15px; font-weight: bold;" id="prop-detail-financials">₺0 (Komisyon: %0)</div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 10px; color: var(--text3); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Adres</div>
+        <div style="font-size: 13px; color: var(--text2);" id="prop-detail-address">Sivas</div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 10px; color: var(--text3); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Notlar</div>
+        <div style="font-size: 13px; color: var(--text2); font-style: italic;" id="prop-detail-notes">-</div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+        <h4 style="font-family: var(--font-heading); font-size: 14px; margin-bottom: 12px;">Bu Mülkle İlgili İşlemler</h4>
+        <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+          <table style="font-size: 11px;">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Açıklama</th>
+                <th>Tür</th>
+                <th>Tutar</th>
+              </tr>
+            </thead>
+            <tbody id="prop-detail-tx-list">
+              <!-- JS Injected transactions -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 25px;">
+        <button class="btn btn-secondary" style="flex: 1;" id="btn-edit-detail-prop">Düzenle</button>
+        <button class="btn" style="flex: 1; background-color: var(--red-neg);" id="btn-delete-detail-prop">Sil</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Invoice -->
+  <div class="modal-overlay" id="modal-invoice">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-invoice-title">Yeni Fatura Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-invoice')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-invoice">
+          <input type="hidden" id="inv-id">
+          <div class="form-group">
+            <label for="inv-number">Fatura No *</label>
+            <input type="text" id="inv-number" class="form-control" placeholder="Örn: FAT-2026-001" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="inv-type">Fatura Türü *</label>
+              <select id="inv-type" class="form-control" required>
+                <option value="e-Fatura">e-Fatura</option>
+                <option value="e-Arsiv">e-Arşiv</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="inv-status">Durum *</label>
+              <select id="inv-status" class="form-control" required>
+                <option value="Taslak">Taslak</option>
+                <option value="Gonderildi">Gönderildi</option>
+                <option value="Iptal">İptal</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inv-customer">Müşteri Adı *</label>
+            <input type="text" id="inv-customer" class="form-control" placeholder="Müşteri adı / firma adı" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="inv-tax-id">Vergi No</label>
+              <input type="text" id="inv-tax-id" class="form-control" placeholder="Vergi kimlik numarası">
+            </div>
+            <div class="form-group">
+              <label for="inv-amount">Tutar (₺) *</label>
+              <input type="text" id="inv-amount" class="form-control auto-thousands" placeholder="0.00" required>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="inv-issue-date">Kesim Tarihi *</label>
+              <input type="date" id="inv-issue-date" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label for="inv-due-date">Vade Tarihi</label>
+              <input type="date" id="inv-due-date" class="form-control">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inv-address">Müşteri Adresi</label>
+            <input type="text" id="inv-address" class="form-control" placeholder="Müşteri adresi">
+          </div>
+          <div class="form-group">
+            <label for="inv-desc">Açıklama</label>
+            <input type="text" id="inv-desc" class="form-control" placeholder="Hizmet / ürün açıklaması">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="inv-notes">Notlar</label>
+            <textarea id="inv-notes" class="form-control" rows="3" placeholder="Ek notlar..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-invoice')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-invoice">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Account -->
+  <div class="modal-overlay" id="modal-account">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-account-title">Yeni Cari Hesap Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-account')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-account">
+          <input type="hidden" id="acc-id">
+          <div class="form-group">
+            <label for="acc-company">Firma / Kişi Adı *</label>
+            <input type="text" id="acc-company" class="form-control" placeholder="Firma adı veya kişi adı" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="acc-type">Hesap Türü *</label>
+              <select id="acc-type" class="form-control" required>
+                <option value="Musteri">Müşteri</option>
+                <option value="Tedarikci">Tedarikçi</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="acc-balance">Açılış Bakiyesi (₺)</label>
+              <input type="text" id="acc-balance" class="form-control auto-thousands" placeholder="0.00">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="acc-contact">İletişim Kişisi</label>
+              <input type="text" id="acc-contact" class="form-control" placeholder="Yetkili kişi">
+            </div>
+            <div class="form-group">
+              <label for="acc-phone">Telefon</label>
+              <input type="text" id="acc-phone" class="form-control" placeholder="05xx xxx xxxx">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="acc-email">E-posta</label>
+              <input type="email" id="acc-email" class="form-control" placeholder="ornek@firma.com">
+            </div>
+            <div class="form-group">
+              <label for="acc-tax-id">Vergi No</label>
+              <input type="text" id="acc-tax-id" class="form-control" placeholder="Vergi kimlik no">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+              <label for="acc-tax-office">Vergi Dairesi</label>
+              <input type="text" id="acc-tax-office" class="form-control" placeholder="Vergi dairesi">
+            </div>
+            <div class="form-group">
+              <label for="acc-address">Adres</label>
+              <input type="text" id="acc-address" class="form-control" placeholder="Adres">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="acc-notes">Notlar</label>
+            <textarea id="acc-notes" class="form-control" rows="2" placeholder="Ek notlar..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-account')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-account">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Account Transaction -->
+  <div class="modal-overlay" id="modal-account-tx">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <span class="modal-title">Hareket Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-account-tx')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-account-tx">
+          <input type="hidden" id="actx-account-id">
+          <div class="form-group">
+            <label for="actx-date">Tarih *</label>
+            <input type="date" id="actx-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="actx-type">Hareket Türü *</label>
+            <select id="actx-type" class="form-control" required>
+              <option value="Borc">Borç</option>
+              <option value="Alacak">Alacak</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="actx-amount">Tutar (₺) *</label>
+            <input type="text" id="actx-amount" class="form-control auto-thousands" placeholder="0.00" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="actx-desc">Açıklama</label>
+            <input type="text" id="actx-desc" class="form-control" placeholder="Hareket açıklaması">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-account-tx')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-account-tx">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Account Detail (Hareketler) -->
+  <div class="modal-overlay" id="modal-account-detail">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <span class="modal-title" id="acc-detail-title">Hesap Detayı</span>
+        <button class="modal-close" onclick="closeModal('modal-account-detail')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="acc-detail-header"></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <button class="btn btn-danger" id="btn-mass-delete-actx" style="width: auto; padding: 8px 16px; display: none;">🗑️ Toplu Sil</button>
+        </div>
+        <div id="acc-detail-table" class="table-responsive"></div>
+      </div>
+      <div class="modal-footer" id="acc-detail-footer" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Sözleşme Ekle/Düzenle -->
+  <div class="modal-overlay" id="modal-agreement">
+    <div class="modal-content" style="max-width: 550px;">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-agreement-title">Yeni Sözleşme</span>
+        <button class="modal-close" onclick="closeModal('modal-agreement')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-agreement">
+          <input type="hidden" id="agr-id">
+          <div class="form-group">
+            <label for="agr-date">Tarih</label>
+            <input type="date" id="agr-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="agr-company">Firma Adı</label>
+            <input type="text" id="agr-company" class="form-control" placeholder="Firma adı" required>
+          </div>
+          <div class="form-group">
+            <label for="agr-plan">Plan</label>
+            <select id="agr-plan" class="filter-control" style="width: auto;">
+              <option value="Günlük">Günlük</option>
+              <option value="Haftalık">Haftalık</option>
+              <option value="Aylık" selected>Aylık</option>
+              <option value="Yıllık">Yıllık</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="agr-amount">Tutar (₺)</label>
+            <input type="text" id="agr-amount" class="form-control auto-thousands" placeholder="0">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+              <label for="agr-start">Başlangıç Tarihi</label>
+              <input type="date" id="agr-start" class="form-control">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label for="agr-end">Bitiş Tarihi</label>
+              <input type="date" id="agr-end" class="form-control">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="agr-status">Durum</label>
+            <select id="agr-status" class="filter-control" style="width: auto;">
+              <option value="Aktif">Aktif</option>
+              <option value="Süresi Doldu">Süresi Doldu</option>
+              <option value="İptal">İptal</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="agr-desc">Açıklama</label>
+            <textarea id="agr-desc" class="form-control" rows="2" placeholder="Sözleşme açıklaması"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width: auto;" onclick="closeModal('modal-agreement')">İptal</button>
+        <button class="btn" style="width: auto;" id="btn-save-agreement">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: IBAN Ekle/Düzenle -->
+  <div class="modal-overlay" id="modal-iban">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-iban-title">Yeni IBAN Ekle</span>
+        <button class="modal-close" onclick="closeModal('modal-iban')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="iban-form">
+          <input type="hidden" id="iban-id">
+          <div class="form-group">
+            <label>IBAN Adı *</label>
+            <input type="text" id="iban-name" class="form-control" placeholder="Örn: Yo Media İş Bankası" required>
+          </div>
+          <div class="form-group">
+            <label>IBAN No *</label>
+            <input type="text" id="iban-number" class="form-control" placeholder="TR12 0000 0000 0000 0000 0000 00" style="font-family:monospace;" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Açıklama</label>
+            <textarea id="iban-desc" class="form-control" rows="2" placeholder="Banka adı, şube vb."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width:auto;" onclick="closeModal('modal-iban')">İptal</button>
+        <button class="btn" style="width:auto;" id="btn-save-iban">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome Introduction Modal -->
+  <div class="modal-overlay" id="modal-welcome">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <span class="modal-title">👋 Toprak Gayrimenkul'e Hoş Geldiniz</span>
+        <button class="modal-close" onclick="closeModal('modal-welcome')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">📊 Ana Panel</h4>
+          <p style="color: var(--text2); font-size: 13px;">Gelir/gider özetinizi görün, grafiklerle analiz yapın ve son işlemlerinizi takip edin.</p>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">💳 İşlemler</h4>
+          <p style="color: var(--text2); font-size: 13px;">Tüm finansal işlemlerinizi ekleyin, düzenleyin ve filtreleyin. Gelir ve giderlerinizi kategorilere ayırın.</p>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">🏢 Mülkler</h4>
+          <p style="color: var(--text2); font-size: 13px;">Portföyünüzdeki mülkleri yönetin, satış/kiralama durumlarını takip edin.</p>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">👥 Personel</h4>
+          <p style="color: var(--text2); font-size: 13px;">Ekibinizi yönetin, prim ve maaş bilgilerini görüntüleyin.</p>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">📈 Raporlar</h4>
+          <p style="color: var(--text2); font-size: 13px;">Kâr/zarar tabloları, kategori bazlı gelir-gider analizi ve PDF/CSV dışa aktarım.</p>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">📄 e-Fatura / e-Arşiv</h4>
+          <p style="color: var(--text2); font-size: 13px;">e-Fatura ve e-Arşiv faturalarınızı oluşturun, yönetin ve müşterilerinize gönderin.</p>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">📋 Cari Hesap</h4>
+          <p style="color: var(--text2); font-size: 13px;">Müşteri ve tedarikçi bakiyelerini takip edin, borç/alacak hareketlerini kaydedin.</p>
+        </div>
+        <div style="margin-bottom: 0;">
+          <h4 style="font-family: var(--font-heading); margin-bottom: 10px;">⚙️ Ayarlar</h4>
+          <p style="color: var(--text2); font-size: 13px;">Tema değiştirin, yerel yedekleme ve CSV içe aktarma ayarlarını yapılandırın.</p>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <button class="btn" style="width: auto; padding: 10px 30px;" onclick="closeModal('modal-welcome')">Başlayalım!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Import File -->
+  <div class="modal-overlay" id="modal-import-file">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-import-title">Dosya İçe Aktar</span>
+        <button class="modal-close" onclick="closeModal('modal-import-file')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="import-file-info" style="margin-bottom:15px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-weight:600;font-size:13px;" id="import-file-name"></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px;" id="import-file-meta"></div>
+        </div>
+        <div class="form-group">
+          <label>Bu dosya nedir?</label>
+          <select id="import-type-select" class="filter-control" onchange="onImportTypeChange()">
+            <option value="fatura">📄 e-Fatura / e-Arşiv</option>
+            <option value="gelir">💰 Gelir İşlemi</option>
+            <option value="gider">💸 Gider İşlemi</option>
+            <option value="cari">📋 Cari Hesap Hareketi</option>
+            <option value="dosyala">📁 Sadece Dosyala</option>
+          </select>
+        </div>
+        <div id="import-fields-container"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width:auto;" onclick="closeModal('modal-import-file')">İptal</button>
+        <button class="btn" id="btn-import-save" style="width:auto;" onclick="saveImportFile()">💾 İçe Aktar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Çoklu Seçim -->
+  <div class="modal-overlay" id="modal-multiselect">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <span class="modal-title">🔍 Çoklu Seçim</span>
+        <button class="modal-close" onclick="closeModal('modal-multiselect')">&times;</button>
+      </div>
+      <div class="modal-body" id="multiselect-body">
+        <p style="color:var(--text3);font-size:13px;margin-bottom:15px;">Aşağıdan seçim yapmak istediğiniz kategorileri işaretleyin.</p>
+        <div id="multiselect-tabs" style="display:flex;gap:6px;margin-bottom:15px;flex-wrap:wrap;">
+          <button class="btn btn-sm multiselect-tab active" data-tab="accounts" style="width:auto;padding:6px 12px;font-size:12px;">📋 Cari Hesap</button>
+          <button class="btn btn-sm multiselect-tab" data-tab="properties" style="width:auto;padding:6px 12px;font-size:12px;">🏢 Mülkler</button>
+          <button class="btn btn-sm multiselect-tab" data-tab="agreements" style="width:auto;padding:6px 12px;font-size:12px;">📝 Sözleşmeler</button>
+        </div>
+        <div id="multiselect-list" style="max-height:350px;overflow-y:auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width:auto;" onclick="closeModal('modal-multiselect')">Kapat</button>
+        <button class="btn" style="width:auto;" onclick="applyMultiSelect()">✅ Seçimi Uygula</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Folder Import -->
+  <div class="modal-overlay" id="modal-import-folder">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <span class="modal-title">Klasör İçe Aktar</span>
+        <button class="modal-close" onclick="closeModal('modal-import-folder')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text2);font-size:13px;margin-bottom:15px;">Klasördeki dosyalar tek tek işlenecek. Her dosya için tür seçip içe aktarabilirsiniz.</p>
+        <div id="import-folder-list" style="max-height:400px;overflow-y:auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" style="width:auto;" onclick="closeModal('modal-import-folder')">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Containers -->
+  <div id="toast-container"></div>
+
+  <!-- Saving indicator -->
+  <div id="saving-indicator">
+    <span id="saving-icon">💾</span>
+    <span id="saving-text">Kayıt ediliyor...</span>
+  </div>
+
+  <!-- Javascript entrypoint -->
+  <script src="app.js"></script>
+</body>
+</html>

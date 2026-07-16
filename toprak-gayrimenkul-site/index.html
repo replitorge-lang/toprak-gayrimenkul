@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toprak Gayrimenkul — Finansal Yönetim Paneli</title>
+<meta name="description" content="Gayrimenkul işletmeniz için gelir-gider takibi, e-Fatura, cari hesap ve portföy yönetimi bir arada.">
+<meta property="og:title" content="Toprak Gayrimenkul — Finansal Yönetim Paneli">
+<meta property="og:description" content="Defterini tutan masaüstü uygulaması.">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F0C09;
+    --surface:#1E1A14;
+    --surface2:#2A2520;
+    --accent:#8B1A1A;
+    --accent-hover:#C0392B;
+    --gold:#C9922A;
+    --text:#F0EDE8;
+    --text2:#A89880;
+    --border:#3A3228;
+    --green:#2D6A2D;
+    --red:#C0392B;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Sans', sans-serif;
+    font-display:swap;
+    line-height:1.6;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,h4{ font-family:'Playfair Display', serif; font-weight:600; letter-spacing:-0.01em; }
+  a{color:inherit; text-decoration:none;}
+  img,svg{display:block;}
+  .container{ max-width:1180px; margin:0 auto; padding:0 32px; }
+  .tabular{ font-feature-settings:"tnum" 1, "lnum" 1; font-variant-numeric:tabular-nums lining-nums; }
+  header{
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    background:rgba(15,12,9,0.65);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid transparent;
+    transition:border-color .4s ease, background .4s ease;
+  }
+  header.scrolled{ border-bottom-color:var(--border); background:rgba(15,12,9,0.94); }
+  .nav-inner{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 32px; max-width:1180px; margin:0 auto;
+  }
+  .brand{ display:flex; align-items:center; gap:11px; font-family:'Playfair Display', serif; font-size:17px; font-weight:600; }
+  .brand-mark{ width:32px; height:32px; border-radius:8px; overflow:hidden; border:1px solid rgba(201,146,42,0.35); }
+  .brand-mark img{ width:100%; height:100%; object-fit:cover; }
+  .nav-links{ display:flex; gap:34px; align-items:center; }
+  .nav-links a{ font-size:13.5px; color:var(--text2); transition:color .25s ease; }
+  .nav-links a:hover{ color:var(--text); }
+  .nav-cta{
+    background:var(--accent); color:var(--text); padding:9px 18px; border-radius:7px;
+    font-size:13.5px; font-weight:600; border:1px solid rgba(201,146,42,0.3);
+    transition:background .25s ease, transform .2s ease;
+  }
+  .nav-cta:hover{ background:var(--accent-hover); transform:translateY(-1px); }
+  .hero{ position:relative; padding:160px 0 90px; border-bottom:1px solid var(--border); }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.08fr 0.92fr;
+    gap:56px;
+    align-items:center;
+  }
+  .hero-kicker{
+    display:flex; align-items:center; gap:10px;
+    font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold);
+    margin-bottom:20px;
+    opacity:0; animation:fadeUp .75s ease .05s forwards;
+  }
+  .hero-kicker::before{ content:""; width:24px; height:1px; background:var(--gold); }
+  .hero h1{
+    font-size:clamp(32px, 4vw, 52px);
+    line-height:1.12;
+    margin-bottom:20px;
+    opacity:0; animation:fadeUp .75s ease .12s forwards;
+  }
+  .hero h1 strong{ color:var(--gold); font-weight:700; }
+  .hero p.sub{
+    font-size:16px; color:var(--text2); max-width:480px; margin-bottom:32px;
+    opacity:0; animation:fadeUp .75s ease .20s forwards;
+  }
+  .hero-ctas{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:26px; opacity:0; animation:fadeUp .75s ease .28s forwards; }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:13px 22px; border-radius:8px;
+    font-size:14px; font-weight:600; cursor:pointer; transition:all .25s ease; border:1px solid transparent;
+  }
+  .btn-primary{
+    background:var(--accent); color:var(--text); border:1px solid rgba(201,146,42,0.4);
+    box-shadow:0 8px 20px -8px rgba(139,26,26,0.5);
+  }
+  .btn-primary:hover{ background:var(--accent-hover); transform:translateY(-2px); box-shadow:0 12px 28px -6px rgba(139,26,26,0.6); }
+  .btn-secondary{ background:transparent; color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover{ border-color:var(--gold); color:var(--gold); }
+  .hero-trust{
+    font-size:12.5px; color:var(--text2);
+    opacity:0; animation:fadeUp .75s ease .36s forwards;
+  }
+  .hero-trust strong{ color:var(--text); font-weight:600; }
+  .panel-mock{
+    background:linear-gradient(165deg, var(--surface) 0%, var(--surface2) 100%);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+    box-shadow:0 32px 80px -32px rgba(0,0,0,0.7);
+    opacity:0; animation:fadeUp .8s ease .25s forwards;
+  }
+  .panel-mock-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; gap:12px; }
+  .panel-mock-head .title{ font-size:11.5px; color:var(--text2); letter-spacing:0.06em; text-transform:uppercase; flex:1; }
+  .panel-mock-head .dots{ display:flex; gap:5px; flex-shrink:0; }
+  .panel-mock-head .dots span{ width:6px; height:6px; border-radius:50%; background:var(--border); }
+  .panel-mock-balance{ margin-bottom:22px; }
+  .panel-mock-balance .lbl{ font-size:11px; color:var(--text2); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.05em; }
+  .panel-mock-balance .val{ font-family:'Playfair Display', serif; font-size:28px; font-weight:600; color:var(--text); }
+  .panel-mock-balance .delta{ font-size:12px; color:#6fbf6f; margin-left:6px; }
+  .panel-mock-rows{ border-top:1px dashed var(--border); display:flex; flex-direction:column; gap:0; }
+  .pm-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 0; border-bottom:1px dashed var(--border);
+    font-size:12.5px;
+  }
+  .pm-row:last-child{ border-bottom:none; }
+  .pm-row .left{ display:flex; align-items:center; gap:8px; color:var(--text); }
+  .pm-row .icon{ width:24px; height:24px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; }
+  .pm-row .icon.in{ background:rgba(45,106,45,0.2); }
+  .pm-row .icon.out{ background:rgba(192,57,43,0.2); }
+  .pm-row .amt{ font-weight:600; }
+  .pm-row .amt.pos{ color:#6fbf6f; }
+  .pm-row .amt.neg{ color:#e07a6d; }
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:translateY(0);} }
+  .reveal{ opacity:0; transform:translateY(28px); transition:opacity .75s cubic-bezier(.2,.7,.3,1), transform .75s cubic-bezier(.2,.7,.3,1); }
+  .reveal.in-view{ opacity:1; transform:translateY(0); }
+  section{ position:relative; }
+  .section-pad{ padding:100px 0; }
+  .section-head{ margin-bottom:54px; }
+  .section-eyebrow{ font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold); margin-bottom:12px; display:block; }
+  .section-head h2{ font-size:clamp(26px, 3vw, 36px); line-height:1.2; max-width:560px; margin-bottom:14px; }
+  .section-head p{ color:var(--text2); font-size:15.5px; max-width:480px; }
+  .ledger{ border-top:1px solid var(--border); }
+  .ledger-row{
+    display:grid;
+    grid-template-columns:42px 1fr auto;
+    align-items:start;
+    gap:18px;
+    padding:28px 0;
+    border-bottom:1px solid var(--border);
+    transition:background .3s ease;
+  }
+  .ledger-row:hover{ background:rgba(201,146,42,0.02); }
+  .ledger-icon{
+    width:42px; height:42px; border-radius:10px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px;
+  }
+  .ledger-body h3{ font-size:18px; margin-bottom:5px; font-weight:600; }
+  .ledger-body p{ color:var(--text2); font-size:14px; max-width:500px; }
+  .ledger-tag{
+    align-self:center;
+    font-size:11px; color:var(--text2);
+    border:1px solid var(--border);
+    padding:5px 11px;
+    border-radius:100px;
+    white-space:nowrap;
+  }
+  @media (max-width:700px){
+    .ledger-row{ grid-template-columns:36px 1fr; }
+    .ledger-tag{ grid-column:2; justify-self:start; margin-top:3px; }
+  }
+  .whatsnew{
+    background:linear-gradient(160deg, rgba(139,26,26,0.08) 0%, rgba(201,146,42,0.04) 100%);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:42px 40px;
+  }
+  .whatsnew-head{ margin-bottom:24px; }
+  .whatsnew-head .tag{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);
+    margin-bottom:8px;
+  }
+  .whatsnew-head .tag::before{ content:"✨"; }
+  .whatsnew-head h3{ font-size:22px; font-weight:600; margin-bottom:4px; }
+  .whatsnew-head p{ color:var(--text2); font-size:14.5px; }
+  .whatsnew-items{ display:flex; flex-direction:column; gap:12px; margin-top:18px; }
+  .item{ display:flex; align-items:flex-start; gap:10px; font-size:14px; color:var(--text2); }
+  .item::before{ content:"▪"; color:var(--gold); flex-shrink:0; }
+  .item strong{ color:var(--text); font-weight:600; }
+  .download-section{ padding:110px 0; border-top:1px solid var(--border); }
+  .download-card{
+    background:linear-gradient(160deg, var(--surface) 0%, var(--surface2) 100%);
+    border:1px solid var(--border);
+    border-radius:16px;
+    max-width:740px;
+    margin:0 auto;
+    position:relative;
+    overflow:hidden;
+  }
+  .download-card::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background-image:linear-gradient(90deg, var(--bg) 50%, transparent 0);
+    background-size:12px 1px;
+    background-repeat:repeat-x;
+    z-index:1;
+  }
+  .dl-top{ position:relative; z-index:2; padding:42px 44px 28px; text-align:center; border-bottom:1px dashed var(--border); }
+  .dl-status{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; font-weight:600; color:#6fbf6f;
+    margin-bottom:16px;
+  }
+  .dl-status .dot{ width:6px; height:6px; border-radius:50%; background:#6fbf6f; box-shadow:0 0 7px #6fbf6f; }
+  .download-card h2{ font-size:clamp(24px, 3vw, 28px); margin-bottom:10px; }
+  .dl-top p{ color:var(--text2); font-size:14.5px; max-width:420px; margin:0 auto; }
+  .dl-bottom{ position:relative; z-index:2; padding:28px 44px 42px; }
+  .dl-meta{ display:flex; justify-content:center; gap:0; margin-bottom:28px; }
+  .meta-item{ padding:0 24px; border-right:1px dashed var(--border); text-align:center; }
+  .meta-item:last-child{ border-right:none; }
+  .meta-item .val{ font-family:'Playfair Display', serif; font-size:18px; font-weight:600; color:var(--gold); margin-bottom:2px; }
+  .meta-item .lbl{ font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.07em; }
+  .btn-download{ width:100%; justify-content:center; font-size:14.5px; padding:16px 22px; }
+  .download-note{ margin-top:16px; font-size:13px; color:var(--text2); text-align:center; }
+  .platform-row{ display:flex; justify-content:center; gap:7px; margin-top:22px; }
+  .platform-pill{ font-size:11.5px; color:var(--text2); border:1px solid var(--border); padding:5px 11px; border-radius:100px; }
+  footer{ border-top:1px solid var(--border); padding:32px 0; }
+  .footer-inner{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; }
+  .footer-inner p{ font-size:12.5px; color:var(--text2); }
+  .footer-inner a{ font-size:12.5px; color:var(--text2); transition:color .25s ease; }
+  .footer-inner a:hover{ color:var(--gold); }
+  .footer-brand{ display:flex; align-items:center; gap:9px; }
+  .footer-mark{ width:24px; height:24px; border-radius:6px; overflow:hidden; border:1px solid rgba(201,146,42,0.3); }
+  .footer-mark img{ width:100%; height:100%; object-fit:cover; }
+  @media (max-width:900px){
+    .hero-grid{ grid-template-columns:1fr; }
+    .panel-mock{ max-width:420px; margin:0 auto; }
+  }
+  @media (max-width:860px){
+    .nav-links{ display:none; }
+    .dl-top, .dl-bottom{ padding-left:26px; padding-right:26px; }
+    .whatsnew{ padding:32px 26px; }
+  }
+  @media (max-width:560px){
+    .hero{ padding:130px 0 60px; }
+    .dl-meta{ flex-wrap:wrap; row-gap:14px; }
+    .meta-item{ padding:0 12px; }
+    .footer-inner{ flex-direction:column; text-align:center; }
+  }
+</style>
+</head>
+<body>
+
+<header id="site-header">
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-mark"><img src="assets/logo.png" alt="Toprak Gayrimenkul logosu"></div>
+      Toprak Gayrimenkul
+    </div>
+    <nav class="nav-links">
+      <a href="#features">Özellikler</a>
+      <a href="#whatsnew">Yenilikler</a>
+      <a href="#download">İndir</a>
+    </nav>
+    <a href="#download" class="nav-cta">v1.3.0 İndir</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <div class="hero-kicker">Sivas | Masaüstü Finansal Yönetimi</div>
+      <h1>Defterinizi tutan <strong>tek uygulama</strong></h1>
+      <p class="sub">Kirasını unutma, faturayı kaybetme, cari hesabı karıştırma. Toprak Gayrimenkul tek yerinde tutar: gelir, gider, e-Fatura, cari, portföy.</p>
+      <div class="hero-ctas">
+        <a href="#download" class="btn btn-primary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Şimdi İndir
+        </a>
+        <a href="#features" class="btn btn-secondary">Neler Yapabilirim?</a>
+      </div>
+      <p class="hero-trust"><strong>v1.3.0</strong> — Windows 10/11 • ~80 MB • <strong>3 dakikadan az</strong> kurulum</p>
+    </div>
+    <div class="panel-mock tabular">
+      <div class="panel-mock-head">
+        <span class="title">Kasım 2026 · Kasa Özeti</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="panel-mock-balance">
+        <div class="lbl">Net Bakiye</div>
+        <span class="val">₺284.650</span><span class="delta">+%12,4</span>
+      </div>
+      <div class="panel-mock-rows">
+        <div class="pm-row">
+          <div class="left"><div class="icon in">↓</div> Kira Geliri</div>
+          <div class="amt pos">+₺42.000</div>
+        </div>
+        <div class="pm-row">
+          <div class="left"><div class="icon out">↑</div> Fatura Ödemesi</div>
+          <div class="amt neg">−₺6.150</div>
+        </div>
+        <div class="pm-row">
+          <div class="left"><div class="icon in">↓</div> Cari Tahsilat</div>
+          <div class="amt pos">+₺18.400</div>
+        </div>
+        <div class="pm-row">
+          <div class="left"><div class="icon out">↑</div> Personel Maaşı</div>
+          <div class="amt neg">−₺31.200</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="section-pad">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-eyebrow">Altı Modül</span>
+      <h2>Tüm finansal ihtiyaçlarınız bir panelde</h2>
+      <p>Defter tutmak için excel açmayı, cari hesapları kağıda yazmayı, fatura durumlarını telefonda sorgulamayı bırakın.</p>
+    </div>
+    <div class="ledger reveal">
+      <div class="ledger-row">
+        <div class="ledger-icon">💳</div>
+        <div class="ledger-body">
+          <h3>Gelir & Gider Takibi</h3>
+          <p>Tüm işlemleri kategorize edin, filtreleyin, anlık grafiklerde görün. Hangisi kârlı, hangisi zararla kapandı bilir hale gelin.</p>
+        </div>
+        <div class="ledger-tag">Muhasebe</div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-icon">🏢</div>
+        <div class="ledger-body">
+          <h3>Portföy Yönetimi</h3>
+          <p>Mülkleri, kiracıları, personeli tek panelden yönetin. Her mülkün kira takisi, masrafları ve kâr/zararı bir tıkla.</p>
+        </div>
+        <div class="ledger-tag">Portföy</div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-icon">📄</div>
+        <div class="ledger-body">
+          <h3>e-Fatura & e-Arşiv</h3>
+          <p>Fatura oluştur, gönder, durumunu takip et. E-Arşiv entegrasyonu — muhasebeci veya yeminli olmadan işlemleri kapatın.</p>
+        </div>
+        <div class="ledger-tag">Faturalama</div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-icon">📋</div>
+        <div class="ledger-body">
+          <h3>Cari Hesap Yönetimi</h3>
+          <p>Müşteri ve tedarikçi bakiyelerini anlık görün, borç/alacak takibi yapın, ödeme hatırlatması otomatik göndersin.</p>
+        </div>
+        <div class="ledger-tag">Cari</div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-icon">📊</div>
+        <div class="ledger-body">
+          <h3>Detaylı Raporlar</h3>
+          <p>Aylık kar/zarar, kategori dağılımları, mülk kârlılığı tabloları. Hepsi PDF/CSV olarak indirilebilir.</p>
+        </div>
+        <div class="ledger-tag">Raporlama</div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-icon">🎨</div>
+        <div class="ledger-body">
+          <h3>5 Tema & Kişiselleştirme</h3>
+          <p>Koyu, Açık, Mavi, Cappuccino, Orman temalı arayüz. Her gün baktığınız uygulamayı istediğiniz gibi görin.</p>
+        </div>
+        <div class="ledger-tag">Görünüm</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="whatsnew" class="section-pad">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-eyebrow">v1.3.0'da Yeni</span>
+      <h2>Neler Eklendi?</h2>
+    </div>
+    <div class="whatsnew reveal">
+      <div class="whatsnew-head">
+        <div class="tag">Yeni Özellikler</div>
+        <h3>Toprak Gayrimenkul 1.3.0</h3>
+        <p>Kullanıcı geri bildirimlerine göre güncellendi. Daha hızlı, daha akıllı, daha pratik.</p>
+      </div>
+      <div class="whatsnew-items">
+        <div class="item"><strong>Otomatik Cari Düş</strong> — Kiracılar ödeme yaparken müşteri cari hesabı otomatik güncellenir.</div>
+        <div class="item"><strong>Hızlı Fatura Şablonları</strong> — Tekrarlayan faturaları şablon olarak kaydet, 1 tıkta oluştur.</div>
+        <div class="item"><strong>CSV Toplu İthal</strong> — Eski muhasebeden geçiş: tüm işlemleri CSV'den aktarım yap.</div>
+        <div class="item"><strong>Aylık Grafik Özeti</strong> — Her ayın başında kâr/zarar grafiği şeffaf görmek.</div>
+        <div class="item"><strong>Cep Telefonundan Bildirim</strong> — İşlem eklenirse, önemli tarihler yaklaşırsa telefona bildirim al.</div>
+        <div class="item"><strong>Yönetici Kilidi & Kullanıcı Yönetimi</strong> — Birden fazla personel kullanmakta, erişimi sınırlandır.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="download-section">
+  <div class="container">
+    <div class="download-card reveal">
+      <div class="dl-top">
+        <span class="dl-status"><span class="dot"></span> Güncel sürüm 1.3.0 yayında</span>
+        <h2>Şimdi başlayın</h2>
+        <p>Kurulum 3 dakika, hemen kullanmaya başlayın. Windows 10/11 (64-bit) için.</p>
+      </div>
+      <div class="dl-bottom">
+        <div class="dl-meta tabular">
+          <div class="meta-item"><div class="val">v1.3.0</div><div class="lbl">Sürüm</div></div>
+          <div class="meta-item"><div class="val">~80 MB</div><div class="lbl">Boyut</div></div>
+          <div class="meta-item"><div class="val">Win 10/11</div><div class="lbl">Platform</div></div>
+        </div>
+        <a href="https://github.com/replitorge-lang/toprak-gayrimenkul/releases/latest" class="btn btn-primary btn-download">
+          📥 Toprak Gayrimenkul Setup 1.3.0.exe
+        </a>
+        <p class="download-note">Kurulum için yönetici izni gerekebilir. İndirdikten sonra .exe dosyasını çalıştırın ve tamamlayın.</p>
+        <div class="platform-row">
+          <span class="platform-pill">64-bit</span>
+          <span class="platform-pill">Windows 10</span>
+          <span class="platform-pill">Windows 11</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <div class="footer-mark"><img src="assets/logo.png" alt="Toprak Gayrimenkul logosu"></div>
+      <p>© 2026 Toprak Gayrimenkul. Tüm hakları saklıdır.</p>
+    </div>
+    <a href="mailto:destek@toprakgayrimenkul.com">destek@toprakgayrimenkul.com</a>
+  </div>
+</footer>
+
+<script>
+  const header = document.getElementById('site-header');
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('scrolled', window.scrollY > 20);
+  });
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add('in-view');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+  revealEls.forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

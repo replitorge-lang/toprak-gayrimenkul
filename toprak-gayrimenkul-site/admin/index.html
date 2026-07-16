@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Cihazlar</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0F0C09;color:#F0EDE8;font-family:system-ui,sans-serif;padding:40px;}
+  h1{font-size:24px;margin-bottom:8px;color:#C9922A;}
+  .sub{color:#A89880;font-size:13px;margin-bottom:24px;}
+  .login-box{max-width:320px;margin:80px auto;background:#1E1A14;border:1px solid #3A3228;border-radius:12px;padding:32px;}
+  .login-box h2{margin-bottom:16px;font-size:18px;}
+  .login-box input{width:100%;padding:10px 14px;background:#2A2520;border:1px solid #3A3228;border-radius:6px;color:#F0EDE8;font-size:14px;margin-bottom:12px;}
+  .login-box button{width:100%;padding:10px;background:#8B1A1A;color:#F0EDE8;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
+  .login-box button:hover{background:#C0392B;}
+  .error{color:#e07a6d;font-size:13px;margin-top:8px;}
+  table{width:100%;border-collapse:collapse;background:#1E1A14;border-radius:12px;overflow:hidden;}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #3A3228;font-size:12.5px;}
+  th{background:#2A2520;color:#C9922A;font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:0.06em;}
+  td{color:#A89880;}
+  .status-online{color:#6fbf6f;}
+  .status-offline{color:#e07a6d;}
+  .count{color:#A89880;margin-bottom:16px;font-size:13px;}
+  .count strong{color:#F0EDE8;}
+  .logout{float:right;color:#8B1A1A;cursor:pointer;font-size:13px;}
+  .note-input{background:#2A2520;border:1px solid #3A3228;border-radius:4px;color:#F0EDE8;font-size:12px;padding:4px 6px;width:100%;max-width:160px;}
+  .btn-sm{padding:4px 10px;border:none;border-radius:4px;font-size:11px;cursor:pointer;margin:1px;}
+  .btn-del{background:#5C1010;color:#e07a6d;}
+  .btn-del:hover{background:#8B1A1A;}
+  .btn-upd{background:#1A3A1A;color:#6fbf6f;}
+  .btn-upd:hover{background:#2D6A2D;}
+  .btn-save{background:#2A2520;color:#C9922A;border:1px solid #3A3228;}
+  .btn-save:hover{background:#3A3228;}
+  .toast{position:fixed;bottom:20px;right:20px;background:#1E1A14;border:1px solid #3A3228;border-radius:8px;padding:12px 20px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .actions{white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-box">
+    <h2>Admin Paneli</h2>
+    <input type="password" id="token-input" placeholder="Yonetici Sifresi" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()">Giris</button>
+    <div class="error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="dashboard" style="display:none">
+  <h1>Cihaz Yonetimi <span class="logout" onclick="logout()">Cikis</span></h1>
+  <div class="count" id="device-count">Yukleniyor...</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Cihaz</th>
+        <th>Versiyon</th>
+        <th>Isletim Sistemi</th>
+        <th>Son Gorulme</th>
+        <th>Durum</th>
+        <th>Not</th>
+        <th>Islemler</th>
+      </tr>
+    </thead>
+    <tbody id="device-list"></tbody>
+  </table>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN_KEY = 'tg_admin_token';
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function login() {
+  const token = document.getElementById('token-input').value;
+  if (!token) return;
+  localStorage.setItem(TOKEN_KEY, token);
+  loadDevices();
+}
+
+function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('login').style.display = 'block';
+}
+
+async function api(path, opts) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const url = '/.netlify/functions/' + path + '?token=' + encodeURIComponent(token);
+  const res = await fetch(url, opts || {});
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    document.getElementById('login').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('login-error').textContent = 'Hatali sifre';
+    throw new Error('unauthorized');
+  }
+  return res;
+}
+
+async function deleteDevice(deviceId) {
+  if (!confirm('Bu cihazi sil?')) return;
+  await api('devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete', deviceId })
+  });
+  toast('Cihaz silindi');
+  loadDevices();
+}
+
+async function forceUpdate(deviceId) {
+  await api('devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'command', deviceId, command: 'check_update' })
+  });
+  toast('Guncelleme komutu gonderildi');
+}
+
+async function saveNote(deviceId, input) {
+  const note = input.value;
+  await api('devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'note', deviceId, note })
+  });
+  toast('Not kaydedildi');
+}
+
+async function loadDevices() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('login-error').textContent = '';
+
+  try {
+    const res = await api('devices');
+    const devices = await res.json();
+    document.getElementById('device-count').innerHTML = '<strong>' + devices.length + '</strong> cihaz kayitli';
+    const tbody = document.getElementById('device-list');
+    tbody.innerHTML = '';
+    devices.sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+    for (const d of devices) {
+      const lastSeen = new Date(d.lastSeen);
+      const diff = Date.now() - lastSeen;
+      const isOnline = diff < 86400000;
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + (d.deviceName || d.deviceId.slice(0, 8)) + '</td>' +
+        '<td>' + (d.version || '-') + '</td>' +
+        '<td>' + (d.os || '-') + '</td>' +
+        '<td>' + lastSeen.toLocaleString('tr-TR') + '</td>' +
+        '<td class="' + (isOnline ? 'status-online' : 'status-offline') + '">' + (isOnline ? 'Aktif' : '24s+') + '</td>' +
+        '<td><input class="note-input" id="note-' + d.deviceId + '" value="' + (d.note || '') + '" placeholder="Not ekle..."></td>' +
+        '<td class="actions">' +
+          '<button class="btn-sm btn-upd" onclick="forceUpdate(\'' + d.deviceId + '\')">Guncelle</button>' +
+          '<button class="btn-sm btn-save" onclick="saveNote(\'' + d.deviceId + '\', document.getElementById(\'note-' + d.deviceId + '\'))">Kaydet</button>' +
+          '<button class="btn-sm btn-del" onclick="deleteDevice(\'' + d.deviceId + '\')">Sil</button>' +
+        '</td>';
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      document.getElementById('device-count').textContent = 'Baglanti hatasi';
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadDevices);
+</script>
+</body>
+</html>

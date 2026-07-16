@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+tmp/
+*.exe
+*.dll
+*.pak
+*.bin
+*.dat
+*.zip
+*.asar
+*.log
+*.err
+$null
+.toprak gayrimenkul/
+installer/dist/
+installer/build/
+installer/tmp/
+installer/node_modules/
+extracted/node_modules/
+toprak-gayrimenkul-site/netlify/functions/node_modules/

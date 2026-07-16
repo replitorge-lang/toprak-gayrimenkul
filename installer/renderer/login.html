@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Toprak Gayrimenkul Giriş</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-body theme-dark" id="login-app">
+  
+  <div class="login-titlebar">
+    <button class="window-btn" id="min-btn">&#8722;</button>
+    <button class="window-btn" id="close-btn">&#215;</button>
+  </div>
+
+  <div class="login-card">
+    <button class="theme-toggle-btn" id="theme-toggle">🌙</button>
+
+    <div class="brand-logo-container">
+      <!-- Logo is loaded as an image file from assets/logo.png for easy customization -->
+      <img src="../assets/logo.png" alt="Toprak Gayrimenkul Logo" style="max-height: 80px; max-width: 200px; object-fit: contain; margin-bottom: 15px;">
+    </div>
+
+    <div class="login-tagline">Finansal Yönetim Paneli</div>
+
+    <div class="form-group">
+      <label for="user-name">Kullanıcı Adı</label>
+      <input type="text" id="user-name" class="form-control" placeholder="Adınızı girin" autofocus autocomplete="off">
+      <div class="form-error" id="name-error">Lütfen geçerli bir isim girin (en az 2 karakter).</div>
+    </div>
+
+    <button class="btn" id="login-btn">Giriş Yap</button>
+  </div>
+
+  <script>
+    // Theme toggle logic
+    const body = document.getElementById('login-app');
+    const themeBtn = document.getElementById('theme-toggle');
+    const nameInput = document.getElementById('user-name');
+    const loginBtn = document.getElementById('login-btn');
+    const nameError = document.getElementById('name-error');
+    const themeList = ['dark', 'light', 'mavi', 'cappuccino', 'orman'];
+    const themeIcons = { dark: '☀️', light: '🌙', mavi: '🌤️', cappuccino: '☕', orman: '🌿' };
+
+    // Retrieve theme
+    window.toprak.getTheme().then(theme => {
+      body.className = `login-body theme-${theme}`;
+      themeBtn.textContent = themeIcons[theme] || '☀️';
+    });
+
+    themeBtn.addEventListener('click', async () => {
+      const classList = body.className.split(' ');
+      const currentTheme = classList.find(c => c.startsWith('theme-')).replace('theme-', '');
+      const idx = themeList.indexOf(currentTheme);
+      const newTheme = themeList[(idx + 1) % themeList.length];
+      body.className = `login-body theme-${newTheme}`;
+      themeBtn.textContent = themeIcons[newTheme];
+      await window.toprak.setTheme(newTheme);
+    });
+
+    // Window controls
+    document.getElementById('min-btn').addEventListener('click', () => {
+      window.toprak.minimize();
+    });
+    document.getElementById('close-btn').addEventListener('click', () => {
+      window.toprak.close();
+    });
+
+    // Login submit
+    const handleSubmit = async () => {
+      const name = nameInput.value.trim();
+      if (name.length < 2) {
+        nameError.style.display = 'block';
+        nameInput.focus();
+        return;
+      }
+      nameError.style.display = 'none';
+      await window.toprak.setUser(name);
+    };
+
+    loginBtn.addEventListener('click', handleSubmit);
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleSubmit();
+      }
+    });
+  </script>
+</body>
+</html>
