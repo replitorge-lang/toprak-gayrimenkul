@@ -1,0 +1,49 @@
+{
+  "name": "toprak-gayrimenkul-test",
+  "version": "1.3.0-test",
+  "description": "[TEST] Toprak Gayrimenkul Test Sürümü",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "cmd /c rebuild-native.cmd",
+    "pack": "electron-builder --prepackaged dist/win-unpacked"
+  },
+  "author": "Toprak Gayrimenkul",
+  "license": "ISC",
+  "build": {
+    "appId": "com.toprak.gayrimenkul.test",
+    "productName": "Toprak Gayrimenkul Test",
+    "directories": {
+      "output": "dist-test"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Toprak Gayrimenkul",
+      "installerIcon": "build/icon.ico"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "publish": {
+        "provider": "github",
+        "owner": "replitorge-lang",
+        "repo": "toprak-gayrimenkul",
+        "releaseType": "release"
+      }
+    }
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.1.0",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.0.0",
+    "yallist": "^4.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "electron-updater": "^6.8.9",
+    "node-gyp": "^13.0.1"
+  }
+}

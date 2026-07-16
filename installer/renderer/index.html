@@ -646,28 +646,13 @@
             <button class="btn btn-sm" onclick="edmReload()" style="padding:4px 8px;font-size:14px;">⟳</button>
             <input type="text" id="edm-url" readonly style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text2);font-size:12px;font-family:monospace;">
             <span id="edm-loading" style="font-size:12px;color:var(--text3);display:none;">Yükleniyor...</span>
+            <span id="edm-session-status" style="font-size:11px;color:var(--success);display:none;white-space:nowrap;">✓ Oturum açık</span>
+            <button class="btn btn-sm" onclick="openModal('modal-pwd-manager')" title="Şifre Yöneticisi" style="padding:4px 8px;font-size:14px;">🔑</button>
             <button class="btn btn-sm" onclick="importSingleFile()" title="Dosya içe aktar" style="padding:4px 8px;font-size:14px;">📥</button>
             <button class="btn btn-sm" onclick="importFolderFiles()" title="Klasör içe aktar" style="padding:4px 8px;font-size:14px;">📂</button>
-            <button class="btn btn-sm" onclick="saveEdmCookies()" title="EDM çerezlerini kaydet" style="padding:4px 8px;font-size:14px;">🍪💾</button>
-            <button class="btn btn-sm" onclick="loadEdmCookies()" title="EDM çerezlerini yükle" style="padding:4px 8px;font-size:14px;">🍪📂</button>
-            <button class="btn btn-sm" onclick="showPasswordManager()" title="Şifre Yöneticisi" style="padding:4px 8px;font-size:14px;">🔑</button>
           </div>
           <webview id="edm-webview" src="https://nlbui.edmbilisim.com.tr/EFaturaUI/" style="flex:1;border:1px solid var(--border);border-radius:8px;" allowpopups></webview>
-          <!-- Password Manager Panel -->
-          <div id="edm-password-panel" style="display:none;flex-shrink:0;border-top:1px solid var(--border);padding:10px;background:var(--bg1);max-height:300px;overflow-y:auto;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <strong style="font-size:14px;">Şifre Yöneticisi</strong>
-              <button class="btn btn-sm" onclick="hidePasswordManager()" style="padding:2px 8px;">✕</button>
-            </div>
-            <div id="pwd-form" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center;">
-              <input type="text" id="pwd-key" placeholder="Etiket (örn. edm)" style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);font-size:12px;">
-              <input type="text" id="pwd-username" placeholder="Kullanıcı adı" style="width:130px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);font-size:12px;">
-              <input type="password" id="pwd-password" placeholder="Şifre" style="width:130px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);font-size:12px;">
-              <button class="btn btn-sm" onclick="addPassword()" style="padding:4px 10px;">Kaydet</button>
-              <button class="btn btn-sm" onclick="autoFillEdm()" style="padding:4px 10px;">🔑 Otomatik Doldur</button>
-            </div>
-            <div id="pwd-list" style="display:flex;flex-direction:column;gap:4px;"></div>
-          </div>
+        </div>
         </div>
       </div>
 
@@ -1425,6 +1410,43 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" style="width:auto;" onclick="closeModal('modal-import-folder')">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Şifre Yöneticisi -->
+  <div class="modal-overlay" id="modal-pwd-manager">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <span class="modal-title">🔑 Şifre Yöneticisi</span>
+        <button class="modal-close" onclick="closeModal('modal-pwd-manager')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding-bottom:0;">
+        <!-- Yeni şifre ekle formu -->
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <input type="text" id="pwd-key" placeholder="Etiket (örn. edm, vergi)" style="flex:1;min-width:80px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:13px;">
+          <input type="text" id="pwd-username" placeholder="Kullanıcı adı / E-posta" style="flex:1;min-width:120px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:13px;">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <input type="password" id="pwd-password" placeholder="Şifre" style="flex:1;min-width:120px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:13px;">
+          <button class="btn" onclick="addPassword()" style="padding:8px 20px;white-space:nowrap;">💾 Kaydet</button>
+        </div>
+
+        <!-- Oturum ve otomatik doldur -->
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-secondary" onclick="autoFillEdm()" style="padding:8px 16px;font-size:13px;">🔑 Otomatik Giriş Yap</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;">
+            <input type="checkbox" id="edm-remember" checked onchange="toggleRemember()">
+            Beni hatırla (çerezleri otomatik kaydet)
+          </label>
+          <span id="edm-session-info" style="font-size:12px;color:var(--text3);margin-left:auto;"></span>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:0 0 10px 0;">
+
+        <!-- Kayıtlı şifreler -->
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2);">Kayıtlı Şifreler</div>
+        <div id="pwd-list" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin-bottom:10px;"></div>
       </div>
     </div>
   </div>
