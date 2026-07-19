@@ -18,7 +18,7 @@ Sivas merkezli gayrimenkul isletmeniz icin finansal yonetim paneli.
 ## Gereksinimler
 
 - Windows 10/11 (64-bit)
-- ~80 MB disk alani
+- ~240 MB disk alani
 
 ## Kurulum
 
