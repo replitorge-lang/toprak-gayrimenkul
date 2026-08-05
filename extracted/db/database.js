@@ -422,15 +422,11 @@ module.exports = {
   },
 
   // Transactions
-  getTransactions(filters = {}) {
+  // Shared WHERE builder so the row query and the count query can never drift
+  // apart. The joins stay in both because search matches property/staff names.
+  _txWhere(filters) {
     const cid = getViewCompanyFilter();
-    let sql = `
-      SELECT t.*, p.name as property_name, s.full_name as staff_name 
-      FROM transactions t
-      LEFT JOIN properties p ON t.property_id = p.id
-      LEFT JOIN staff s ON t.staff_id = s.id
-      WHERE 1=1
-    `;
+    let sql = ' WHERE 1=1';
     const params = [];
     if (cid) { sql += ' AND t.company_id = ?'; params.push(cid); }
 
@@ -459,9 +455,92 @@ module.exports = {
       const pattern = `%${filters.search}%`;
       params.push(pattern, pattern, pattern, pattern);
     }
+    return { sql, params };
+  },
 
-    sql += ' ORDER BY t.date DESC, t.id DESC';
+  getTransactions(filters = {}) {
+    const where = this._txWhere(filters);
+    let sql = `
+      SELECT t.*, p.name as property_name, s.full_name as staff_name
+      FROM transactions t
+      LEFT JOIN properties p ON t.property_id = p.id
+      LEFT JOIN staff s ON t.staff_id = s.id
+    ` + where.sql + ' ORDER BY t.date DESC, t.id DESC';
+    const params = where.params;
+
+    // Only ship the rows the caller will actually render. Without this the
+    // views pull every matching row across IPC just to show one page.
+    if (filters.limit) {
+      sql += ' LIMIT ?';
+      params.push(filters.limit);
+      if (filters.offset) {
+        sql += ' OFFSET ?';
+        params.push(filters.offset);
+      }
+    }
     return prep(sql).all(...params);
+  },
+
+  countTransactions(filters = {}) {
+    const where = this._txWhere(filters);
+    const sql = `
+      SELECT COUNT(*) AS n
+      FROM transactions t
+      LEFT JOIN properties p ON t.property_id = p.id
+      LEFT JOIN staff s ON t.staff_id = s.id
+    ` + where.sql;
+    return prep(sql).get(...where.params).n;
+  },
+
+  // Aggregates for the dashboard. These run in SQLite over the existing
+  // indexes instead of serialising every transaction into the renderer.
+  getMonthlyTotals(startMonth, endMonth) {
+    const cid = getViewCompanyFilter();
+    let sql = `
+      SELECT substr(date, 1, 7) AS ym,
+             SUM(CASE WHEN type IN ('Gelir','Personel','Paket','Platform','İşletme') THEN amount ELSE 0 END) AS income,
+             SUM(CASE WHEN type = 'Gider' THEN amount ELSE 0 END) AS expense
+      FROM transactions
+      WHERE status = 'Tamamlandı' AND date >= ? AND date <= ?
+    `;
+    const params = [startMonth + '-01', endMonth + '-31'];
+    if (cid) { sql += ' AND company_id = ?'; params.push(cid); }
+    sql += ' GROUP BY ym';
+    return prep(sql).all(...params);
+  },
+
+  getPendingCount() {
+    const cid = getViewCompanyFilter();
+    let sql = "SELECT COUNT(*) AS n FROM transactions WHERE status = 'Bekliyor'";
+    const params = [];
+    if (cid) { sql += ' AND company_id = ?'; params.push(cid); }
+    return prep(sql).get(...params).n;
+  },
+
+  getDashboardSummary(startDate, endDate) {
+    const cid = getViewCompanyFilter();
+    const incomeTypes = "('Gelir','Personel','Paket','Platform','İşletme')";
+    let sql = `
+      SELECT
+        SUM(CASE WHEN status = 'Tamamlandı' AND date >= ? AND date <= ?
+                 AND type IN ${incomeTypes} THEN amount ELSE 0 END) AS income,
+        SUM(CASE WHEN status = 'Tamamlandı' AND date >= ? AND date <= ?
+                 AND type = 'Gider' THEN amount ELSE 0 END) AS expense,
+        SUM(CASE WHEN status = 'Bekliyor'
+                 AND (type IN ${incomeTypes} OR type = 'Gider') THEN amount ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'Bekliyor' THEN 1 ELSE 0 END) AS pending_count
+      FROM transactions
+      WHERE 1=1
+    `;
+    const params = [startDate, endDate, startDate, endDate];
+    if (cid) { sql += ' AND company_id = ?'; params.push(cid); }
+    const row = prep(sql).get(...params) || {};
+    return {
+      income: row.income || 0,
+      expense: row.expense || 0,
+      pending: row.pending || 0,
+      pendingCount: row.pending_count || 0
+    };
   },
 
   addTransaction(data) {

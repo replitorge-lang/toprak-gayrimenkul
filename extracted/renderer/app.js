@@ -19,11 +19,19 @@ const state = {
   activePropertyId: null,
   // Confirm modal callbacks
   confirmCallback: null,
+  // Total matching rows for the current transaction filters (the table itself
+  // only holds the visible page).
+  transactionsTotal: 0,
   // New views data
   invoices: [],
   accounts: [],
     agreements: []
 };
+
+// Reference data (categories, properties, staff) only changes when the user
+// edits those records or switches company — not when they type in the search
+// box. Rebuilding it per keystroke cost four extra IPC round-trips each time.
+let txRefsReady = false;
 
 const COMPANY_LOGOS = {
   gayrimenkul: { icon: '🏠', color: '#2563eb', img: '../assets/logo.png', name: 'Toprak Gayrimenkul', sub: 'Gayrimenkul' },
@@ -41,8 +49,12 @@ function getBadgeClass(type) { return isIncome(type) ? 'badge-income' : isExpens
 function getRowClass(type) { return isIncome(type) ? 'row-income' : 'row-gider'; }
 
 // Turkish Formatter Helpers
+// Build the Intl formatter once. toLocaleString() rebuilds it on every call,
+// which is the single hottest cost in table rendering and counter animation.
+const tryFormatter = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
 function formatCurrency(val) {
-  return '₺' + Number(val).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return '₺' + tryFormatter.format(Number(val));
 }
 
 function formatDate(dateStr) {
@@ -157,7 +169,7 @@ async function applyViewCompanyFilter(value) {
   await loadCategoriesCache();
   // Reload current view
   if (state.currentView === 'dashboard') loadDashboard();
-  else if (state.currentView === 'transactions') loadTransactions();
+  else if (state.currentView === 'transactions') loadTransactions(true);
   else if (state.currentView === 'properties') loadProperties();
   else if (state.currentView === 'staff') loadStaff();
   else if (state.currentView === 'reports') loadReports();
@@ -527,10 +539,12 @@ function closePropertyDetail() {
 
 // Notification bell
 async function updatePendingBell() {
-  const allTxs = await window.toprak.getTransactions({ status: 'Bekliyor' });
+  // Only the count is displayed, so ask for a count instead of transferring
+  // every pending row across IPC.
+  const count = await window.toprak.getPendingCount();
   const bellCount = document.getElementById('notification-count');
-  if (allTxs.length > 0) {
-    bellCount.textContent = allTxs.length;
+  if (count > 0) {
+    bellCount.textContent = count;
     bellCount.style.display = 'flex';
   } else {
     bellCount.style.display = 'none';
@@ -609,7 +623,7 @@ function switchView(viewName) {
   if (viewName === 'dashboard') {
     loadDashboard();
   } else if (viewName === 'transactions') {
-    loadTransactions();
+    loadTransactions(true);
   } else if (viewName === 'properties') {
     loadProperties();
   } else if (viewName === 'staff') {
@@ -636,33 +650,54 @@ function switchView(viewName) {
 }
 
 // Number animate helper
+// All counters share a single rAF loop. Previously each card started its own,
+// so a dashboard load ran four parallel loops formatting currency every frame.
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const activeCounters = [];
+let counterFrame = 0;
+
+function runCounters(now) {
+  counterFrame = 0;
+  for (let i = activeCounters.length - 1; i >= 0; i--) {
+    const c = activeCounters[i];
+    const progress = Math.min((now - c.startTime) / c.duration, 1);
+    // Ease out quad
+    const value = Math.floor(progress * (2 - progress) * c.absValue);
+    const text = (c.isNegative ? '-' : '') + formatCurrency(progress < 1 ? value : c.absValue);
+    // Skip the DOM write when the rendered text has not changed.
+    if (text !== c.lastText) {
+      c.element.textContent = text;
+      c.lastText = text;
+    }
+    if (progress >= 1) activeCounters.splice(i, 1);
+  }
+  if (activeCounters.length) counterFrame = requestAnimationFrame(runCounters);
+}
+
 function animateCounter(elementId, targetValue, duration = 800) {
   const element = document.getElementById(elementId);
   if (!element) return;
 
-  const start = 0;
   const isNegative = targetValue < 0;
   const absValue = Math.abs(targetValue);
-  const startTime = performance.now();
 
-  function updateCount(currentTime) {
-    const elapsed = currentTime - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    
-    // Ease out quad
-    const easeProgress = progress * (2 - progress);
-    const currentValue = Math.floor(start + easeProgress * (absValue - start));
-    
-    element.textContent = (isNegative ? '-' : '') + formatCurrency(currentValue);
-
-    if (progress < 1) {
-      requestAnimationFrame(updateCount);
-    } else {
-      element.textContent = (isNegative ? '-' : '') + formatCurrency(absValue);
-    }
+  // Low-end machines and reduced-motion users get the final value immediately.
+  if (reduceMotion.matches) {
+    element.textContent = (isNegative ? '-' : '') + formatCurrency(absValue);
+    return;
   }
 
-  requestAnimationFrame(updateCount);
+  // Replace any in-flight animation for the same element.
+  const existing = activeCounters.findIndex(c => c.element === element);
+  if (existing !== -1) activeCounters.splice(existing, 1);
+
+  activeCounters.push({
+    element, absValue, isNegative, duration,
+    startTime: performance.now(),
+    lastText: null
+  });
+
+  if (!counterFrame) counterFrame = requestAnimationFrame(runCounters);
 }
 
 
@@ -679,31 +714,17 @@ async function loadDashboard() {
   const startOfMonth = `${currentYear}-${currentMonth}-01`;
   const endOfMonth = `${currentYear}-${currentMonth}-31`;
 
-  // Get completed items
-  const currentMonthTxs = await window.toprak.getTransactions({
-    startDate: startOfMonth,
-    endDate: endOfMonth
-  });
+  // One aggregate query replaces two full-table fetches that were summed here
+  // in JS. Both the recent list and the summary are requested in parallel.
+  const [summary, allTxs] = await Promise.all([
+    window.toprak.getDashboardSummary(startOfMonth, endOfMonth),
+    window.toprak.getTransactions({ limit: 10 })
+  ]);
 
-  // Calculate cards totals
-  let totalIncome = 0;
-  let totalExpense = 0;
-  
-  currentMonthTxs.forEach(t => {
-    if (t.status === 'Tamamlandı') {
-      if (isIncome(t.type)) totalIncome += t.amount;
-      else if (isExpense(t.type)) totalExpense += t.amount;
-    }
-  });
-
+  const totalIncome = summary.income;
+  const totalExpense = summary.expense;
+  const pendingAmount = summary.pending;
   const netBalance = totalIncome - totalExpense;
-
-  // Calculate total pending
-  const pendingTxs = await window.toprak.getTransactions({ status: 'Bekliyor' });
-  let pendingAmount = 0;
-  pendingTxs.forEach(t => {
-    if (isIncome(t.type) || isExpense(t.type)) pendingAmount += t.amount;
-  });
 
   // Render card counters
   document.querySelectorAll('.summary-value').forEach(v => v.classList.remove('shimmer'));
@@ -720,46 +741,42 @@ async function loadDashboard() {
     netCard.style.color = 'var(--red-neg)';
   }
 
-  // Load Recent Transactions Table (max 10)
-  const allTxs = await window.toprak.getTransactions();
+  // Load Recent Transactions Table (max 10, already limited by the query)
   const recentTable = document.getElementById('dashboard-recent-table');
-  recentTable.innerHTML = '';
-  
+
   if (allTxs.length === 0) {
     recentTable.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text3);">Kayıt bulunamadı.</td></tr>';
   } else {
-    allTxs.slice(0, 10).forEach(t => {
-      const tr = document.createElement('tr');
-      tr.className = getRowClass(t.type);
-      
+    // Build the markup as one string and parse it once, instead of running an
+    // innerHTML parse per row.
+    let html = '';
+    for (const t of allTxs) {
       let statusBadge = '';
       if (t.status === 'Tamamlandı') statusBadge = '<span class="badge badge-success">Tamamlandı</span>';
       else if (t.status === 'Bekliyor') statusBadge = '<span class="badge badge-warning">Bekliyor</span>';
       else if (t.status === 'İptal') statusBadge = '<span class="badge badge-danger">İptal</span>';
 
-      tr.innerHTML = `
+      html += `<tr class="${getRowClass(t.type)}">
         <td>${formatDate(t.date)}</td>
-        <td style="font-weight: 500;">${t.description}</td>
-        <td><span style="color: var(--text2);">${t.category}</span></td>
-        <td><span class="badge ${getBadgeClass(t.type)}">${t.type}</span></td>
+        <td style="font-weight: 500;">${escHtml(t.description)}</td>
+        <td><span style="color: var(--text2);">${escHtml(t.category)}</span></td>
+        <td><span class="badge ${getBadgeClass(t.type)}">${escHtml(t.type)}</span></td>
         <td style="font-weight: bold; font-family: var(--font-heading);">${formatCurrency(t.amount)}</td>
         <td>${statusBadge}</td>
-      `;
-      recentTable.appendChild(tr);
-    });
+      </tr>`;
+    }
+    recentTable.innerHTML = html;
   }
 
-  // Animate dashboard cards in with stagger
+  // Animate dashboard cards in with stagger. The delay is handled in CSS so
+  // this no longer writes inline styles from a timer per card.
   const cards = document.querySelectorAll('.summary-card');
   cards.forEach((card, i) => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(16px)';
-    setTimeout(() => {
-      card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-      card.style.opacity = '';
-      card.style.transform = '';
-    }, 80 * i);
+    card.style.setProperty('--stagger', i);
+    card.classList.remove('card-enter');
   });
+  void document.body.offsetWidth; // one forced layout restarts every animation
+  cards.forEach(card => card.classList.add('card-enter'));
 
   // Draw Charts
   renderLineChart();
@@ -788,18 +805,16 @@ async function renderLineChart() {
     });
   }
 
-  const allTxs = await window.toprak.getTransactions();
-  
-  allTxs.forEach(t => {
-    if (t.status !== 'Tamamlandı') return;
-    const ym = t.date.substring(0, 7);
-    const idx = labels.findIndex(l => l.key === ym);
-    if (idx !== -1) {
-      if (isIncome(t.type)) {
-        incomeData[idx] += t.amount;
-      } else if (isExpense(t.type)) {
-        expenseData[idx] += t.amount;
-      }
+  // SQLite groups the six months for us; this used to pull every transaction
+  // into the renderer and bucket them with a linear scan per row.
+  const rows = await window.toprak.getMonthlyTotals(labels[0].key, labels[labels.length - 1].key);
+  const slot = new Map(labels.map((l, i) => [l.key, i]));
+
+  rows.forEach(r => {
+    const idx = slot.get(r.ym);
+    if (idx !== undefined) {
+      incomeData[idx] = r.income || 0;
+      expenseData[idx] = r.expense || 0;
     }
   });
 
@@ -983,6 +998,9 @@ let categoriesCache = { Gelir: [], Gider: [], Personel: [], Paket: [], Platform:
 let categoriesMap = { Gelir: [], Gider: [], Personel: [], Paket: [], Platform: [], İşletme: [] };
 
 async function loadCategoriesCache() {
+  // Categories feed the transactions filter bar, so any refresh here marks
+  // that dropdown stale.
+  txRefsReady = false;
   const cats = await window.toprak.getCategories();
   const viewFilter = await window.toprak.getViewCompanyFilter();
   const viewId = viewFilter === 'all' ? null : Number(viewFilter);
@@ -1015,21 +1033,23 @@ txType.addEventListener('change', (e) => {
 async function initTransactionsFilterBar() {
   await loadCategoriesCache();
   const filterCat = document.getElementById('filter-category');
-  filterCat.innerHTML = '<option value="">Tümü</option>';
-  
-  const allCats = [...(categoriesCache.Gelir || []), ...(categoriesCache.Gider || []), ...(categoriesCache.Personel || []), ...(categoriesCache.Paket || []), ...(categoriesCache.Platform || []), ...(categoriesCache.İşletme || [])];
-  allCats.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c;
-    opt.textContent = c;
-    filterCat.appendChild(opt);
-  });
+  // Preserve the active selection — rebuilding the list used to silently reset
+  // the category filter every time the table reloaded.
+  const selected = filterCat.value;
+
+  const allCats = [...(categoriesCache.Gelir || []), ...(categoriesCache.Gider || []), ...(categoriesCache.Personel || []), ...(categoriesCache.Paket || []), ...(categoriesCache.İşletme || []), ...(categoriesCache.Platform || [])];
+  filterCat.innerHTML = '<option value="">Tümü</option>' +
+    allCats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+
+  if (selected) filterCat.value = selected;
 }
 
 // Load records
-async function loadTransactions() {
-  await initTransactionsFilterBar();
-  await populateDropdowns();
+async function loadTransactions(refreshRefs = false) {
+  if (refreshRefs || !txRefsReady) {
+    await Promise.all([initTransactionsFilterBar(), populateDropdowns()]);
+    txRefsReady = true;
+  }
 
   const filters = {
     search: document.getElementById('filter-search').value.trim(),
@@ -1040,8 +1060,22 @@ async function loadTransactions() {
     endDate: document.getElementById('filter-end-date').value
   };
 
-  const data = await window.toprak.getTransactions(filters);
+  // Fetch only the page being displayed. This used to pull every matching row
+  // across IPC on each keystroke just to render ten of them.
+  const { currentPage, pageSize } = state.pagination;
+  const [data, total] = await Promise.all([
+    window.toprak.getTransactions({ ...filters, limit: pageSize, offset: (currentPage - 1) * pageSize }),
+    window.toprak.countTransactions(filters)
+  ]);
+
+  // A filter change can leave the current page beyond the end of the results.
+  if (data.length === 0 && total > 0 && currentPage > 1) {
+    state.pagination.currentPage = Math.max(1, Math.ceil(total / pageSize));
+    return loadTransactions();
+  }
+
   state.transactions = data;
+  state.transactionsTotal = total;
 
   renderTransactionsTable();
 }
@@ -1050,45 +1084,38 @@ async function loadTransactions() {
 async function populateDropdowns() {
   const propSelect = document.getElementById('tx-property');
   const staffSelect = document.getElementById('tx-staff');
-  
-  // Keep first option
-  propSelect.innerHTML = '<option value="">-- Mülk Seçin (İsteğe Bağlı) --</option>';
-  staffSelect.innerHTML = '<option value="">-- Personel Seçin (İsteğe Bağlı) --</option>';
 
-  const props = await window.toprak.getProperties();
-  const staffList = await window.toprak.getStaff();
+  // Both queries are independent, so run them together rather than in series.
+  const [props, staffList] = await Promise.all([
+    window.toprak.getProperties(),
+    window.toprak.getStaff()
+  ]);
 
-  props.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name;
-    propSelect.appendChild(opt);
-  });
+  propSelect.innerHTML = '<option value="">-- Mülk Seçin (İsteğe Bağlı) --</option>' +
+    props.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
 
-  staffList.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${s.full_name} (${s.role})`;
-    staffSelect.appendChild(opt);
-  });
+  staffSelect.innerHTML = '<option value="">-- Personel Seçin (İsteğe Bağlı) --</option>' +
+    staffList.map(s => `<option value="${s.id}">${escHtml(s.full_name)} (${escHtml(s.role)})</option>`).join('');
 }
 
 function renderTransactionsTable() {
   const tbody = document.getElementById('transactions-table-body');
-  tbody.innerHTML = '';
 
+  // state.transactions now holds exactly the current page; the total comes
+  // from a COUNT query rather than the length of a full result set.
   const { currentPage, pageSize } = state.pagination;
+  const total = state.transactionsTotal || 0;
   const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, state.transactions.length);
+  const endIndex = startIndex + state.transactions.length;
 
-  const pageData = state.transactions.slice(startIndex, endIndex);
+  const pageData = state.transactions;
 
   // Update pagination UI details
-  document.getElementById('pagination-info').textContent = 
-    `Gösterilen: ${state.transactions.length > 0 ? startIndex + 1 : 0} - ${endIndex} / Toplam: ${state.transactions.length}`;
-  
+  document.getElementById('pagination-info').textContent =
+    `Gösterilen: ${total > 0 ? startIndex + 1 : 0} - ${endIndex} / Toplam: ${total}`;
+
   document.getElementById('pagination-prev').disabled = currentPage === 1;
-  document.getElementById('pagination-next').disabled = endIndex >= state.transactions.length;
+  document.getElementById('pagination-next').disabled = endIndex >= total;
 
   if (pageData.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text3); padding: 30px 0;">Kayıt bulunamadı.</td></tr>';
@@ -1096,35 +1123,34 @@ function renderTransactionsTable() {
     return;
   }
 
-  const frag = document.createDocumentFragment();
-  pageData.forEach(t => {
-    const tr = document.createElement('tr');
-    tr.className = getRowClass(t.type);
-    
+  // One string, one parse. Building each row separately meant an innerHTML
+  // parse and a layout-affecting insert per record.
+  let html = '';
+  for (const t of pageData) {
     let statusBadge = '';
     if (t.status === 'Tamamlandı') statusBadge = '<span class="badge badge-success">Tamamlandı</span>';
     else if (t.status === 'Bekliyor') statusBadge = '<span class="badge badge-warning">Bekliyor</span>';
     else if (t.status === 'İptal') statusBadge = '<span class="badge badge-danger">İptal</span>';
-    
+
     // Linked name
     let relationText = '-';
     if (t.property_name && t.staff_name) {
-      relationText = `<span style="font-weight: 500;">🏢 ${t.property_name}</span><br><span style="font-size: 11px; color: var(--text3)">👤 ${t.staff_name}</span>`;
+      relationText = `<span style="font-weight: 500;">🏢 ${escHtml(t.property_name)}</span><br><span style="font-size: 11px; color: var(--text3)">👤 ${escHtml(t.staff_name)}</span>`;
     } else if (t.property_name) {
-      relationText = `<span style="font-weight: 500;">🏢 ${t.property_name}</span>`;
+      relationText = `<span style="font-weight: 500;">🏢 ${escHtml(t.property_name)}</span>`;
     } else if (t.staff_name) {
-      relationText = `<span style="font-size: 11px; color: var(--text3)">👤 ${t.staff_name}</span>`;
+      relationText = `<span style="font-size: 11px; color: var(--text3)">👤 ${escHtml(t.staff_name)}</span>`;
     }
 
-    tr.innerHTML = `
+    html += `<tr class="${getRowClass(t.type)}">
       <td><input type="checkbox" class="select-item" data-id="${t.id}" data-type="tx" onchange="updateMassDeleteBtn('tx')"></td>
       <td>${formatDate(t.date)}</td>
       <td style="font-weight: 500;">
-        ${t.description}
-        ${t.note ? `<br><span style="font-size: 11px; color: var(--text3); font-weight: normal;">Not: ${t.note}</span>` : ''}
+        ${escHtml(t.description)}
+        ${t.note ? `<br><span style="font-size: 11px; color: var(--text3); font-weight: normal;">Not: ${escHtml(t.note)}</span>` : ''}
       </td>
-      <td><span class="badge ${getBadgeClass(t.type)}">${t.type}</span></td>
-      <td><span style="color: var(--text2);">${t.category}</span></td>
+      <td><span class="badge ${getBadgeClass(t.type)}">${escHtml(t.type)}</span></td>
+      <td><span style="color: var(--text2);">${escHtml(t.category)}</span></td>
       <td style="font-weight: bold; font-family: var(--font-heading); font-size: 14px;">${formatCurrency(t.amount)}</td>
       <td>${relationText}</td>
       <td>${statusBadge}</td>
@@ -1134,10 +1160,9 @@ function renderTransactionsTable() {
           <button class="action-btn delete-btn" onclick="deleteTransaction(${t.id})">🗑️</button>
         </div>
       </td>
-    `;
-    frag.appendChild(tr);
-  });
-  tbody.appendChild(frag);
+    </tr>`;
+  }
+  tbody.innerHTML = html;
   updateMassDeleteBtn('tx');
 }
 
@@ -1172,17 +1197,18 @@ document.getElementById('btn-clear-filters').addEventListener('click', () => {
 });
 
 // Pagination events
+// Paging now refetches, since only the visible page is held in memory.
 document.getElementById('pagination-prev').addEventListener('click', () => {
   if (state.pagination.currentPage > 1) {
     state.pagination.currentPage--;
-    renderTransactionsTable();
+    loadTransactions();
   }
 });
 document.getElementById('pagination-next').addEventListener('click', () => {
-  const maxPage = Math.ceil(state.transactions.length / state.pagination.pageSize);
+  const maxPage = Math.ceil((state.transactionsTotal || 0) / state.pagination.pageSize);
   if (state.pagination.currentPage < maxPage) {
     state.pagination.currentPage++;
-    renderTransactionsTable();
+    loadTransactions();
   }
 });
 
@@ -2420,10 +2446,12 @@ async function autoFillEdm() {
   }
 }
 
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function escHtml(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  // String replace instead of creating a throwaway DOM node per call — this
+  // runs once per cell in the larger tables.
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
 }
 
 // ==========================================
@@ -3229,7 +3257,7 @@ async function switchCompany(companyId) {
 
   // Reload current view
   if (state.currentView === 'dashboard') loadDashboard();
-  else if (state.currentView === 'transactions') loadTransactions();
+  else if (state.currentView === 'transactions') loadTransactions(true);
   else if (state.currentView === 'properties') loadProperties();
   else if (state.currentView === 'staff') loadStaff();
   else if (state.currentView === 'reports') loadReports();

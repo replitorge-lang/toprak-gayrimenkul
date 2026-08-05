@@ -192,12 +192,14 @@
   font-family: var(--font-heading); font-size: 32px; font-weight: 700;
   color: #fff;
   box-shadow: 0 8px 30px rgba(139,26,26,0.4), 0 0 0 8px rgba(139,26,26,0.08);
+  /* Scale instead of re-rendering two shadow layers per frame. */
   animation: logo-pulse 2s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes logo-pulse {
-  0%, 100% { box-shadow: 0 8px 30px rgba(139,26,26,0.4), 0 0 0 8px rgba(139,26,26,0.08); }
-  50% { box-shadow: 0 8px 40px rgba(139,26,26,0.55), 0 0 0 14px rgba(139,26,26,0.04); }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
 }
 .splash-title {
   font-family: var(--font-heading); font-size: 26px; font-weight: 700;
@@ -1003,12 +1005,26 @@ header {
   justify-content: center;
   align-items: center;
   border: 2px solid var(--surface);
+  position: relative;
+}
+
+/* The pulse runs forever while anything is pending. Animating box-shadow
+   repainted the badge every frame; a scaled pseudo-element is composited on
+   the GPU and costs nothing to keep running. */
+.notification-badge::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(224, 92, 42, 0.45);
   animation: badge-pulse 2s ease-in-out infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
 }
 
 @keyframes badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 92, 42, 0.4); }
-  50% { box-shadow: 0 0 0 5px rgba(224, 92, 42, 0); }
+  0%, 100% { transform: scale(0.9); opacity: 0.55; }
+  50% { transform: scale(1.5); opacity: 0; }
 }
 
 @keyframes view-fade-in {
@@ -1382,8 +1398,10 @@ tr.row-expense { background-color: var(--row-gider); }
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(15, 12, 9, 0.6);
-  backdrop-filter: blur(8px);
+  /* backdrop-filter forces a full-viewport offscreen blur every frame the
+     modal is visible. On machines without GPU compositing that alone can cost
+     more than the rest of the app combined, so the scrim is a flat colour. */
+  background-color: rgba(15, 12, 9, 0.78);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1748,7 +1766,6 @@ tr.row-expense { background-color: var(--row-gider); }
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   pointer-events: auto;
   min-width: 220px;
-  backdrop-filter: blur(4px);
 }
 
 .toast.active {
@@ -1936,6 +1953,31 @@ tr.row-expense { background-color: var(--row-gider); }
 /* --- Account Detail View Override --- */
 #view-accounts table {
   font-size: 13px;
+}
+
+/* --- Dashboard card entry ---
+   The stagger delay lives here instead of a setTimeout per card writing inline
+   styles, so the whole group animates on the compositor. */
+.summary-card.card-enter {
+  animation: card-enter 0.4s ease both;
+  animation-delay: calc(var(--stagger, 0) * 80ms);
+}
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- Reduced motion / low-end fallback ---
+   Windows exposes this when "Show animations" is turned off, which is the
+   usual setting on the low-spec machines this app runs on. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* --- Print Styles --- */

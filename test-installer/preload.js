@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld('toprak', {
   addTransaction: (data) => ipcRenderer.invoke('add-transaction', data),
   updateTransaction: (id, data) => ipcRenderer.invoke('update-transaction', id, data),
   deleteTransaction: (id) => ipcRenderer.invoke('delete-transaction', id),
+  countTransactions: (filters) => ipcRenderer.invoke('count-transactions', filters),
+  getMonthlyTotals: (start, end) => ipcRenderer.invoke('get-monthly-totals', start, end),
+  getPendingCount: () => ipcRenderer.invoke('get-pending-count'),
+  getDashboardSummary: (start, end) => ipcRenderer.invoke('get-dashboard-summary', start, end),
 
   // Properties
   getProperties: () => ipcRenderer.invoke('get-properties'),

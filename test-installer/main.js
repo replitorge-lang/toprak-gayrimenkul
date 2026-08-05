@@ -58,7 +58,7 @@ function createMainWindow() {
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'dist', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -243,6 +243,10 @@ ipcMain.handle('get-transactions', (event, filters) => db.getTransactions(filter
 ipcMain.handle('add-transaction', (event, data) => db.addTransaction(data));
 ipcMain.handle('update-transaction', (event, id, data) => db.updateTransaction(id, data));
 ipcMain.handle('delete-transaction', (event, id) => db.deleteTransaction(id));
+ipcMain.handle('count-transactions', (event, filters) => db.countTransactions(filters));
+ipcMain.handle('get-monthly-totals', (event, start, end) => db.getMonthlyTotals(start, end));
+ipcMain.handle('get-pending-count', () => db.getPendingCount());
+ipcMain.handle('get-dashboard-summary', (event, start, end) => db.getDashboardSummary(start, end));
 
 // --- Properties IPC ---
 ipcMain.handle('get-properties', () => db.getProperties());
