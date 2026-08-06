@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <title>Toprak Gayrimenkul Finansal Yönetim Paneli</title>
   <link rel="stylesheet" href="style.css">
-  <script src="chart.js"></script>
+  <!-- defer: chart.js is 208KB and blocked HTML parsing in <head>. Deferred
+       scripts still run in order, before DOMContentLoaded. -->
+  <script defer src="chart.js"></script>
 </head>
 <body class="theme-dark" id="main-app">
   <!-- Loading Overlay -->
@@ -651,8 +653,10 @@
             <button class="btn btn-sm" onclick="importSingleFile()" title="Dosya içe aktar" style="padding:4px 8px;font-size:14px;">📥</button>
             <button class="btn btn-sm" onclick="importFolderFiles()" title="Klasör içe aktar" style="padding:4px 8px;font-size:14px;">📂</button>
           </div>
-          <webview id="edm-webview" src="https://nlbui.edmbilisim.com.tr/EFaturaUI/" style="flex:1;border:1px solid var(--border);border-radius:8px;" allowpopups></webview>
-        </div>
+          <!-- No src: a webview with a src attribute spawns a second renderer
+               process and loads the whole portal at app startup, even when the
+               user never opens this view. loadEdmPortal() sets it on demand. -->
+          <webview id="edm-webview" data-src="https://nlbui.edmbilisim.com.tr/EFaturaUI/" style="flex:1;border:1px solid var(--border);border-radius:8px;" allowpopups></webview>
         </div>
       </div>
 
@@ -678,6 +682,18 @@
                 <option value="okyanus">🌊 Okyanus</option>
                 <option value="lavanta">🌸 Lavanta</option>
               </select>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">Performans Modu</h3>
+            <p style="color: var(--text2); font-size: 13px; margin-bottom: 15px;">Eski veya yavaş bilgisayarlar için: animasyonları kapatır ve ekran kartı hızlandırmasını devre dışı bırakır. Değişiklik uygulamanın yeniden başlatılmasıyla geçerli olur.</p>
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <span>Düşük performans modu:</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="settings-low-end-mode">
+                <span class="toggle-slider"></span>
+              </label>
             </div>
           </div>
 
@@ -757,6 +773,7 @@
               <button class="btn btn-secondary" onclick="importSingleFile()" style="width:auto;margin-left:8px;">📥 Dosya İçe Aktar</button>
               <p style="color:var(--text3);font-size:11px;margin-top:6px;">XML (e-Fatura), CSV, Excel, PDF, görsel ve diğer dosya türlerini içe aktarın.</p>
             </div>
+          </div>
 
           <div class="settings-card">
             <h3 style="margin-bottom: 15px; font-family: var(--font-heading);">Uygulama Hakkında</h3>
@@ -1461,6 +1478,6 @@
   </div>
 
   <!-- Javascript entrypoint -->
-  <script src="app.js"></script>
+  <script defer src="app.js"></script>
 </body>
 </html>

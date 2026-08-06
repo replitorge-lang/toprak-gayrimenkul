@@ -1,0 +1,5 @@
+owner: replitorge-lang
+repo: toprak-gayrimenkul
+provider: github
+releaseType: release
+updaterCacheDirName: toprak-gayrimenkul-updater

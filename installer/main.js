@@ -10,6 +10,16 @@ const db = require('./db/database');
 let loginWindow = null;
 let mainWindow = null;
 
+// Must run before the app is ready. On older machines Chromium often falls back
+// to SwiftShader (software GL), where compositing every frame on the CPU is far
+// slower than simply not accelerating at all.
+try {
+  if (db.getSetting('low_end_mode') === '1') {
+    app.disableHardwareAcceleration();
+    app.commandLine.appendSwitch('disable-smooth-scrolling');
+  }
+} catch (_) {}
+
 function createLoginWindow() {
   loginWindow = new BrowserWindow({
     width: 400,

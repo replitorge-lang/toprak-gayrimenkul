@@ -206,9 +206,12 @@ function populateReportFilters() {
 
 // App initialization on DOM load
 window.addEventListener('DOMContentLoaded', async () => {
+  // Apply this before anything paints so no animation ever starts.
+  applyLowEndMode(await window.toprak.getSetting('low_end_mode') === '1');
+
   await initTheme();
   await loadQuickDeleteSetting();
-  
+
   // Fetch user info
   const user = await window.toprak.getUser();
   if (user) {
@@ -2233,6 +2236,8 @@ function edmGoBack() { try { document.getElementById('edm-webview').goBack(); } 
 function edmGoForward() { try { document.getElementById('edm-webview').goForward(); } catch(_) {} }
 function edmReload() { try { document.getElementById('edm-webview').reload(); } catch(_) {} }
 
+let edmListenersBound = false;
+
 async function loadEdmPortal() {
   const container = document.getElementById('edmportal-content');
   if (!container) return;
@@ -2243,6 +2248,13 @@ async function loadEdmPortal() {
   const urlInput = document.getElementById('edm-url');
   const loadingSpan = document.getElementById('edm-loading');
   const statusEl = document.getElementById('edm-session-status');
+
+  // Re-entering the view must not stack another copy of every listener.
+  if (edmListenersBound) {
+    if (!wv.src) startEdmWebview(wv);
+    return;
+  }
+  edmListenersBound = true;
 
   wv.addEventListener('did-start-loading', () => {
     if (loadingSpan) loadingSpan.style.display = 'inline';
@@ -2279,12 +2291,22 @@ async function loadEdmPortal() {
 
   checkSessionStatus(edmLastUrl);
 
-  // Auto-restore cookies on load (silent)
+  // Restore cookies before the first navigation so the session is already
+  // present when the portal loads — this replaces the old load-then-reload.
   const restored = await window.toprak.loadEdmCookies();
   if (restored && restored.success && restored.count > 0) {
     updateSessionInfo(`${restored.count} çerez yüklendi`, 'var(--success)');
-    wv.reload();
   }
+
+  startEdmWebview(wv);
+}
+
+// Kick off the first portal load. Until this runs there is no second renderer
+// process and no external page being fetched.
+function startEdmWebview(wv) {
+  if (wv.src) return;
+  const target = wv.dataset.src;
+  if (target) wv.src = target;
 }
 
 // 🍪 Auto-save cookies when navigating after login
@@ -3535,10 +3557,28 @@ async function loadSettings() {
   const qd = await window.toprak.getSetting('quick_delete');
   document.getElementById('settings-quick-delete').checked = qd === '1';
 
+  const lowEnd = await window.toprak.getSetting('low_end_mode');
+  document.getElementById('settings-low-end-mode').checked = lowEnd === '1';
+
   // Auto-filing settings
   const afConfig = await window.toprak.getAutoFileConfig();
   document.getElementById('settings-auto-file-enabled').value = afConfig.enabled || '0';
   document.getElementById('settings-auto-file-folder').value = afConfig.folder || '';
+}
+
+// Low-end mode: kills animations immediately and disables GPU acceleration on
+// the next launch (that switch has to be set before the app is ready).
+document.getElementById('settings-low-end-mode').addEventListener('change', async (e) => {
+  const on = e.target.checked;
+  await window.toprak.setSetting('low_end_mode', on ? '1' : '0');
+  applyLowEndMode(on);
+  showToast(on
+    ? 'Performans modu açık. Tam etki için uygulamayı yeniden başlatın.'
+    : 'Performans modu kapalı. Uygulamayı yeniden başlatın.');
+});
+
+function applyLowEndMode(on) {
+  document.documentElement.classList.toggle('low-end', on);
 }
 
 // Cloud settings save

@@ -1968,6 +1968,28 @@ tr.row-expense { background-color: var(--row-gider); }
   to { opacity: 1; transform: none; }
 }
 
+/* --- Low-end performance mode (Settings toggle) ---
+   Strips every effect that forces a repaint or a composited layer. Paired with
+   disabling GPU acceleration in the main process, this is the fallback for
+   machines where Chromium ends up software-rendering everything. */
+html.low-end *,
+html.low-end *::before,
+html.low-end *::after {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  will-change: auto !important;
+}
+
+html.low-end .summary-card:hover,
+html.low-end .nav-item:hover,
+html.low-end tbody tr:hover {
+  transform: none !important;
+}
+
 /* --- Reduced motion / low-end fallback ---
    Windows exposes this when "Show animations" is turned off, which is the
    usual setting on the low-spec machines this app runs on. */
